@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>无向网邻接表设计及其最小生成树算法研究 - 第10组</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+SC:wght@300;400;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {--primary: #4AB99D; --bus-color: #00FFFF; --bus-active: #4AB99D; --cyber-cyan: #00FFFF; --accent: #FFD700; --danger: #FF6B6B; --bg-dark: #121214; --bg-black: #0F0F11; --text-main: #FFFFFF; --text-dim: #CCCCCC; --transition-speed: 0.6s;}
+        * {box-sizing: border-box; margin: 0; padding: 0;}
+        body {background-color: var(--bg-black); font-family: 'Noto Sans SC', sans-serif; color: var(--text-main); height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center;}
+        .presentation-wrapper {width: 1280px; height: 720px; position: relative; perspective: 2000px;}
+        .slide-container {background-color: var(--bg-dark); width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; box-shadow: 0 30px 60px rgba(0,0,0,0.8); border-radius: 12px; opacity: 0; visibility: hidden; transform: scale(0.95) translateY(30px); transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1); z-index: 1; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;}
+        .slide-container.active {opacity: 1; visibility: visible; transform: scale(1) translateY(0); z-index: 2;}
+        .slide-container::after {content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 6px; background: linear-gradient(90deg, var(--primary), var(--cyber-cyan)); z-index: 10;}
+        .nav-edge {position: absolute; top: 0; height: 100%; width: 80px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; opacity: 0; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); color: var(--primary); font-size: 24px;}
+        .nav-edge.prev {left: 0; background: linear-gradient(to right, rgba(74, 185, 157, 0.12) 0%, transparent 100%); border-top-left-radius: 12px; border-bottom-left-radius: 12px;}
+        .nav-edge.next {right: 0; background: linear-gradient(to left, rgba(0, 255, 255, 0.12) 0%, transparent 100%); border-top-right-radius: 12px; border-bottom-right-radius: 12px; color: var(--cyber-cyan);}
+        .nav-edge:hover {opacity: 1; text-shadow: 0 0 10px currentColor;}
+        .progress-bar {position: absolute; bottom: 30px; left: 50px; z-index: 101; font-family: 'JetBrains Mono'; color: var(--primary); font-size: 18px; background: rgba(0,0,0,0.5); padding: 6px 20px; border-radius: 20px; border: 1px solid rgba(74, 185, 157, 0.2); backdrop-filter: blur(5px);}
+        .slide-title {font-size: 54px; padding: 30px 50px 10px 50px; color: var(--text-main); font-weight: 700; letter-spacing: 1px;}
+        .slide-title span {font-size: 20px; color: var(--primary); margin-left: 20px; font-family: 'JetBrains Mono'; font-weight: 300; text-transform: uppercase; letter-spacing: 2px;}
+        .content-area {flex-grow: 1; padding: 0 50px 30px 50px; display: flex; flex-direction: column; justify-content: center; position: relative;}
+        @keyframes blurEntry {0% {opacity: 0; filter: blur(12px); transform: translateY(30px);} 100% {opacity: 1; filter: blur(0); transform: translateY(0);}}
+        @keyframes wipeInLeft {from {clip-path: inset(0 100% 0 0); transform: translateX(-30px); opacity: 0;} to {clip-path: inset(0 0 0 0); transform: translateX(0); opacity: 1;}}
+        @keyframes dashLine {from {stroke-dashoffset: 500;} to {stroke-dashoffset: 0;}}
+        .active .anim-1 {animation: blurEntry 0.8s ease-out both 0.2s;}
+        .active .anim-2 {animation: blurEntry 0.8s ease-out both 0.4s;}
+        .active .anim-3 {animation: blurEntry 0.8s ease-out both 0.6s;}
+        .active .anim-4 {animation: blurEntry 0.8s ease-out both 0.8s;}
+        .active .anim-ladder {animation: wipeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;}
+        .anim-path {stroke-dasharray: 500; stroke-dashoffset: 500;}
+        .active .anim-path {animation: dashLine 1.5s ease-out forwards 0.5s;}
+        .agenda-card {position: relative; padding: 32px 26px; background: linear-gradient(135deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0.03) 100%); border: 1px solid rgba(255,255,255,0.05); border-left: 4px solid var(--primary); border-radius: 14px; backdrop-filter: blur(15px); transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1); cursor: pointer;}
+        .agenda-card:hover {transform: translateY(-5px); border-left-color: var(--cyber-cyan); border-color: rgba(0, 255, 255, 0.2); box-shadow: 0 12px 24px rgba(0, 255, 255, 0.08); background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.06) 100%);}
+        .agenda-icon {font-size: 24px; color: var(--primary); transition: all 0.35s ease; margin-right: 14px;}
+        .agenda-card:hover .agenda-icon {color: var(--cyber-cyan); transform: scale(1.1) rotate(5deg); text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);}
+        .desc-box {background: transparent; border: none; padding: 0; text-align: left;}
+        .desc-text {font-size: 24px; line-height: 1.6; color: var(--text-main); text-align: justify;}
+        .desc-text p {margin-bottom: 20px;}
+        .desc-text strong {color: var(--primary);}
+        .desc-text p code {font-family: 'JetBrains Mono'; background: rgba(74, 185, 157, 0.15); color: var(--cyber-cyan); padding: 2px 6px; border-radius: 4px; font-size: 16px;}
+        .code-window {background: #000; border: 1px solid #333; border-radius: 12px; overflow: auto; padding: 25px; font-family: 'JetBrains Mono', monospace; font-size: 18px; line-height: 1.5; color: #abb2bf; max-height: 500px; width: 100%; position: relative;}
+        .code-window pre {white-space: pre; margin: 0;}
+        .kw {color: #c678dd;}
+        .fn {color: #61afef;}
+        .cm {color: #5c6370; font-style: italic;}
+        .str {color: #98c379;}
+        .num {color: #d19a66;}
+        .typ {color: #4AB99D;}
+
+        /* 模仿 Slide 18 的新型精要逻辑面板及卡片式设计 (再次放大了文本字号) */
+        .bor-main-layout {display: grid; grid-template-columns: 1fr 650px; gap: 30px; align-items: center; width: 100%;}
+        .bor-logic-panel {display: flex; flex-direction: column; gap: 10px;}
+        .bor-info-card {background: rgba(255, 255, 255, 0.02); border: 0px solid rgba(255, 255, 255, 0.05); border-left: 5px solid var(--primary); border-radius: 4px; padding: 14px 20px;}
+        .bor-info-card h4 {font-size: 24px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; display: flex; align-items: center; gap: 10px;}
+        .bor-info-card h4 i {color: var(--primary); font-size: 22px;}
+        .bor-info-card p {font-size: 20px; color: var(--text-dim); line-height: 1.6;}
+        .bor-info-card p b {color: var(--text-main);}
+        .bor-tag {background: rgba(74, 185, 157, 0.15); color: var(--primary); font-family: 'JetBrains Mono'; padding: 2px 8px; border-radius: 4px; font-size: 18px; font-weight: bold;}
+        .bor-code-inline { font-weight: 900; color: var(--cyber-cyan); padding: 2px 6px; border-radius: 4px; font-size: 20px;}
+        
+        .code-window {background: #000; border: 1px solid #333; border-radius: 12px; overflow: auto; padding: 25px; font-family: 'JetBrains Mono', monospace; font-size: 18px; line-height: 1.5; color: #abb2bf; max-height: 500px; width: 100%; position: relative;}
+        .code-window pre {margin: 0; white-space: pre;}
+        .kw {color: #c678dd;}
+        .fn {color: #61afef;}
+        .cm {color: #5c6370; font-style: italic;}
+        .str {color: #98c379;}
+        .num {color: #d19a66;}
+        .typ {color: #4AB99D;}
+        
+        /* 右侧可视化面板微调 (极力放大了复杂 SVG 高度，增强视觉表现力) */
+        /* 绝对像素尺寸硬锁定，利用 flex 彻底隔绝左侧文字挤压，可视化窗口及内部 SVG 尺寸绝对锁定防抖 */
+        .viz-window {background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 650px !important; height: 580px !important; min-width: 650px !important; min-height: 530px !important; max-width: 650px !important; max-height: 580px !important; flex-shrink: 0; flex-grow: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px;}
+        #boruvka-svg {width: 620px !important; height: 430px !important; min-width: 620px !important; min-height: 430px !important; max-width: 620px !important; max-height: 500px !important;}
+        #complex-boruvka-svg {width: 620px !important; height: 430px !important; min-width: 620px !important; min-height: 430px !important; max-width: 620px !important; max-height: 500px !important;}
+        .viz-node {transition: fill 0.5s, stroke 0.5s, r 0.3s;}
+        .viz-edge {stroke: rgba(255,255,255,0.15); stroke-width: 4.5; transition: stroke var(--transition-speed) ease-in-out, stroke-width var(--transition-speed) ease-in-out, filter var(--transition-speed) ease-in-out; stroke-dasharray: none;}
+        .viz-edge.active {stroke: var(--cyber-cyan); stroke-width: 9; stroke-dasharray: none; filter: drop-shadow(0 0 10px var(--cyber-cyan));}
+        .viz-weight {fill: #FFFFFF; font-size: 20px; font-family: 'JetBrains Mono'; font-weight: bold; pointer-events: none;}
+        .viz-btn {margin-top: 2px; padding: 4px 20px; background: var(--primary); color: #000; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.3s; font-family: 'Inter'; font-size: 14px;}
+        .viz-btn:hover {background: var(--cyber-cyan); transform: scale(1.05); box-shadow: 0 0 15px var(--cyber-cyan);}
+        .viz-status-bar {width: 100%; background: rgba(0,0,0,0.6); padding: 10px 15px; font-family: 'JetBrains Mono'; font-size: 15px; color: var(--cyber-cyan); border-top: 1px solid rgba(255,255,255,0.1); text-align: center; border-radius: 0 0 12px 12px; margin-top: auto;}
+    
+        /* Slide 9 专用卡片式布局与列表样式 */
+        .summary-card {background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 25px; height: 100%; display: flex; flex-direction: column; justify-content: space-between;}
+        .summary-card h3 {font-size: 28px; font-weight: 700; color: var(--text-main); margin-bottom: 10px; border-bottom: 2px solid rgba(255, 255, 255, 0.1); padding-bottom: 10px;}
+        .summary-list {list-style: none; }
+        .summary-list li {font-size: 22px; line-height: 1.8; color: var(--text-main); margin-bottom: 10px;}
+        .summary-list li strong {color: var(--text-main); font-size: 23px;}
+
+       
+        /* slide13 */
+        .viz-edge {stroke: rgba(255,255,255,0.12); stroke-width: 4.5; transition: stroke 0.6s, stroke-width 0.6s;}
+        /* 1. 左侧原图经典连线擦入动画样式 (自上而下、自左而右的画笔式擦入) */
+        @keyframes drawLineWipe { from { stroke-dashoffset: var(--wipe-len, 300); } to { stroke-dashoffset: 0; }}
+        .viz-edge.draw-wipe {stroke-dasharray: var(--wipe-len, 300);stroke-dashoffset: var(--wipe-len, 300);animation: drawLineWipe 1.0s cubic-bezier(0.16, 1, 0.3, 1) forwards;}
+        .re-node-fade {animation: elementFadeIn 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;}
+        .re-edge-fade {stroke-dasharray: var(--wipe-len, 300);stroke-dashoffset: var(--wipe-len, 300);animation: drawLineWipe 1.0s cubic-bezier(0.16, 1, 0.3, 1) forwards;}
+        /* 新增：使右侧树节点的所有视觉属性（颜色、边框、不透明度）变化时，都拥有 0.8 秒的渐显淡入效果 */
+        #reconstruct-svg g, 
+        #reconstruct-svg circle, 
+        #reconstruct-svg text {transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1),  fill 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+        .viz-weight {fill: #FFFFFF; font-size: 22px; font-family: 'JetBrains Mono'; font-weight: bold; pointer-events: none;}
+        .viz-btn {margin-top: 2px; padding: 4px 20px; background: var(--primary); color: #000; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.3s; font-size: 14px;}
+        .viz-status-bar {width: 100%; background: rgba(0,0,0,0.6); padding: 10px 15px; font-family: 'JetBrains Mono'; font-size: 15px; color: var(--cyber-cyan); border-top: 1px solid rgba(255,255,255,0.1); text-align: center;}
+
+    </style>
+</head>
+<body>
+    <div class="presentation-wrapper">
+        <!-- 左右切换边缘热区 -->
+        <div class="nav-edge prev" onclick="changeSlide(-1)" aria-label="上一页"><i class="fa-solid fa-chevron-left"></i></div>
+        <div class="nav-edge next" onclick="changeSlide(1)" aria-label="下一页"><i class="fa-solid fa-chevron-right"></i></div>
+        
+        <!-- Slide 1: 标题页 -->
+        <div class="slide-container active" id="p1" style="position: relative; overflow: hidden; background-color: var(--bg-black);">
+            <!-- 背景层 -->
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background: url('https://images.unsplash.com/photo-1509023464722-18d996393ca8?q=80&w=2070&auto=format&fit=crop') center/cover no-repeat; filter: brightness(0.2) saturate(0.5) hue-rotate(120deg);"></div>
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; background: radial-gradient(circle at center, rgba(74, 185, 157, 0.15) 0%, var(--bg-black) 90%);"></div>
+            <div style="position: absolute; top: -10%; right: -10%; width: 50%; height: 50%; background: radial-gradient(circle, rgba(74, 185, 157, 0.1) 0%, transparent 70%); filter: blur(60px); z-index: 1;"></div>
+            
+            <!-- 内容层 -->
+            <div class="content-area" style="position: relative; z-index: 2; align-items: center; text-align: center;">
+                <div class="anim-1" style="width: 100%;">
+                    <!-- 顶部装饰学术小标 -->
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 30px;">
+                        <div style="width: 50px; height: 1px; background: linear-gradient(90deg, transparent, var(--primary));"></div>
+                        <i class="fas fa-project-diagram" style="color: var(--primary); font-size: 24px; opacity: 0.9; text-shadow: 0 0 10px rgba(74, 185, 157, 0.5);"></i>
+                        <span style="font-family: 'JetBrains Mono'; color: var(--primary); font-size: 15px; letter-spacing: 4px; font-weight: bold; text-transform: uppercase;">Graph Theory & Algorithm Research</span>
+                        <div style="width: 50px; height: 1px; background: linear-gradient(90deg, var(--primary), transparent);"></div>
+                    </div>      
+                    <!-- 论文式主标题 -->
+                    <h1 style="font-size: 76px; color: var(--text-main); margin-bottom: 25px; font-weight: 800; letter-spacing: 2px; text-shadow: 0 4px 25px rgba(0,0,0,0.6); line-height: 1.25;">
+                        无向网邻接表设计及其<br>最小生成树算法研究
+                    </h1>
+                    <!-- 英文翻译副标题 -->
+                    <p style="font-size: 22px; letter-spacing: 3px; color: var(--primary); margin-bottom: 50px; font-weight: 300; opacity: 0.85; font-family: 'Inter', sans-serif;">
+                        Adjacency List Design of Undirected Networks and Its Minimum Spanning Tree Algorithms
+                    </p>
+                </div>
+                <!-- 渐变分割线 -->
+                <div style="width: 500px; height: 2px; background: linear-gradient(90deg, transparent, var(--primary), var(--cyber-cyan), transparent); margin-bottom: 45px;" class="anim-2"></div>
+                <!-- 小组及成员卡片 -->
+                <div style="padding: 25px 60px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(74, 185, 157, 0.2); border-radius: 20px; backdrop-filter: blur(12px); box-shadow: 0 15px 45px rgba(0,0,0,0.4);" class="anim-3">
+                    <p style="font-weight: 700; color: var(--text-main); font-size: 32px; margin-bottom: 15px; letter-spacing: 2px;">第 10 组</p>
+                    <div style="display: flex; gap: 30px; font-size: 22px; color: var(--text-dim); font-weight: 300;">
+                        <span>Xxx</span>
+                        <span style="color: var(--primary); opacity: 0.5;">•</span>
+                        <span>Xxx</span>
+                        <span style="color: var(--primary); opacity: 0.5;">•</span>
+                        <span>Xxx</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 2: 研讨路径 (Agenda) -->
+        <div class="slide-container" id="p2" style="background: radial-gradient(circle at 50% 50%, rgba(74, 185, 157, 0.04) 0%, transparent 70%);">
+            <h2 class="slide-title">研讨路径<span>Agenda</span></h2>
+            
+            <div class="content-area" style="justify-content: center; align-items: center;">
+                <!-- 适配5个卡片的响应式布局网格 -->
+                <div style="display: flex; flex-direction: column; gap: 24px; width: 100%; max-width: 1120px;">
+                    <!-- 第一排：3个卡片 -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; width: 100%;">
+                        
+                        <!-- Item 1 -->
+                        <div class="agenda-card anim-1">
+                            <div style="position: absolute; top: -12px; left: 24px; background: var(--bg-dark); padding: 0 12px; font-family: 'JetBrains Mono'; font-size: 13px; color: var(--primary); letter-spacing: 2px; border: 1px solid rgba(74, 185, 157, 0.3); border-radius: 8px;">PART 01</div>
+                            <div style="display: flex; align-items: center; margin-bottom: 12px; margin-top: 5px;">
+                                <i class="fa-solid fa-arrow-right-to-bracket agenda-icon"></i>
+                                <span style="font-family: 'JetBrains Mono'; font-size: 24px; color: var(--cyber-cyan); font-weight: 700;">CountDegree(v)</span>
+                            </div>
+                            <div style="font-size: 18px; color: var(--text-dim); font-weight: 400; line-height: 1.5; padding-left: 38px;">统计顶点的入度 / 度数信息</div>
+                        </div>
+
+                        <!-- Item 2 -->
+                        <div class="agenda-card anim-2">
+                            <div style="position: absolute; top: -12px; left: 24px; background: var(--bg-dark); padding: 0 12px; font-family: 'JetBrains Mono'; font-size: 13px; color: var(--primary); letter-spacing: 2px; border: 1px solid rgba(74, 185, 157, 0.3); border-radius: 8px;">PART 02</div>
+                            <div style="display: flex; align-items: center; margin-bottom: 12px; margin-top: 5px;">
+                                <i class="fa-solid fa-circle-nodes agenda-icon"></i>
+                                <span style="font-family: 'JetBrains Mono'; font-size: 24px; color: var(--cyber-cyan); font-weight: 700;">ConnectedComponent()</span>
+                            </div>
+                            <div style="font-size: 18px; color: var(--text-dim); font-weight: 400; line-height: 1.5; padding-left: 38px;">求取图的连通分量基本数目</div>
+                        </div>
+
+                        <!-- Item 3 -->
+                        <div class="agenda-card anim-3">
+                            <div style="position: absolute; top: -12px; left: 24px; background: var(--bg-dark); padding: 0 12px; font-family: 'JetBrains Mono'; font-size: 13px; color: var(--primary); letter-spacing: 2px; border: 1px solid rgba(74, 185, 157, 0.3); border-radius: 8px;">PART 03</div>
+                            <div style="display: flex; align-items: center; margin-bottom: 12px; margin-top: 5px;">
+                                <i class="fa-solid fa-tree agenda-icon"></i>
+                                <span style="font-family: 'JetBrains Mono'; font-size: 24px; color: var(--cyber-cyan); font-weight: 700;">Boruvka()</span>
+                            </div>
+                            <div style="font-size: 18px; color: var(--text-dim); font-weight: 400; line-height: 1.5; padding-left: 38px;">Boruvka 最小生成树算法</div>
+                        </div>
+
+                    </div>
+
+                    <!-- 第二排：2个卡片（居中对齐） -->
+                    <div style="display: flex; gap: 24px; width: 100%; justify-content: center;">
+                        
+                        <!-- Item 4 -->
+                        <div class="agenda-card anim-3" style="width: calc(33.33% - 16px);">
+                            <div style="position: absolute; top: -12px; left: 24px; background: var(--bg-dark); padding: 0 12px; font-family: 'JetBrains Mono'; font-size: 13px; color: var(--primary); letter-spacing: 2px; border: 1px solid rgba(74, 185, 157, 0.3); border-radius: 8px;">PART 04</div>
+                            <div style="display: flex; align-items: center; margin-bottom: 12px; margin-top: 5px;">
+                                <i class="fa-solid fa-fingerprint agenda-icon"></i>
+                                <span style="font-family: 'JetBrains Mono'; font-size: 24px; color: var(--cyber-cyan); font-weight: 700;">hasUniqueMinTree()</span>
+                            </div>
+                            <div style="font-size: 18px; color: var(--text-dim); font-weight: 400; line-height: 1.5; padding-left: 38px;">MST 唯一性判定与分析方法</div>
+                        </div>
+
+                        <!-- Item 5 -->
+                        <div class="agenda-card anim-4" style="width: calc(33.33% - 16px);">
+                            <div style="position: absolute; top: -12px; left: 24px; background: var(--bg-dark); padding: 0 12px; font-family: 'JetBrains Mono'; font-size: 13px; color: var(--primary); letter-spacing: 2px; border: 1px solid rgba(74, 185, 157, 0.3); border-radius: 8px;">PART 05</div>
+                            <div style="display: flex; align-items: center; margin-bottom: 12px; margin-top: 5px;">
+                                <i class="fa-solid fa-sitemap agenda-icon"></i>
+                                <span style="font-family: 'JetBrains Mono'; font-size: 24px; color: var(--cyber-cyan); font-weight: 700;">Ex_Kruskal()</span>
+                            </div>
+                            <div style="font-size: 18px; color: var(--text-dim); font-weight: 400; line-height: 1.5; padding-left: 38px;">Kruskal 重构树的构造与应用</div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧装饰水印 -->
+            <div style="position: absolute; top: 15%; right: 3%; font-family: 'JetBrains Mono'; font-size: 110px; color: rgba(255,255,255,0.012); font-weight: 900; pointer-events: none; transform: rotate(90deg); user-select: none;">ALGORITHMS</div>
+        </div>
+
+        <!-- Slide 3: 无向网邻接表类模板 -->
+        <div class="slide-container" id="p3">
+            <h2 class="slide-title">无向网邻接表类模板<span>AdjListUndirNetwork</span></h2>
+            <div class="content-area">
+                <!-- 调整为完美对称的 50% 50% 网格布局，左侧不再占据右侧部分 -->
+                <div class="anim-1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: center;">
+                    
+                    <!-- 左侧：类模板设计与底层 DFS 辅助剖析 (英文代码加粗并着赛博青色) -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <!-- 核心数据结构板块 -->
+                            <div style="margin-bottom: 18px;">
+                                <h4 style="color: var(--primary); font-size: 32px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-network-wired" style="font-size: 18px;"></i> 核心拓扑存储架构
+                                </h4>
+                                <p>封装无向网核心元数据，<strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">vexNum</strong> 存储顶点数，并由 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">vexTable</strong> 指针统一管理链式邻接表头数组</p>
+                            </div>
+                            
+                            <!-- 辅助标记板块 -->
+                            <div style="margin-bottom: 18px;">
+                                <h4 style="color: var(--cyber-cyan); font-size: 32px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-tags" style="font-size: 18px;"></i> 动态遍历标记数组
+                                </h4>
+                                <p>提供可变标记数组 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">tag</strong>，作为算法运行时的辅助缓存区，安全、无污染地<strong>动态记录顶点遍历状态</strong></p>
+                            </div>
+                            
+                            <!-- 深度优先搜索板块 -->
+                            <div>
+                                <h4 style="color: var(--accent); font-size: 32px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-route" style="font-size: 18px;"></i> 辅助 DFS 遍历策略
+                                </h4>
+                                <p>递归扫描起点 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">v</strong> 的首弧 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">firstarc</strong> 及其邻边链表，回溯遍历所有未访问邻接点 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">p-&gt;adjVex</strong>，用于<strong>连通区域高效计数</strong></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：代码实现窗口 -->
+                    <div class="code-window">
+<pre>
+<span class="kw">template</span> &lt;<span class="kw">class</span> <span class="typ">ElemType</span>, <span class="kw">class</span> <span class="typ">WeightType</span>&gt;
+<span class="kw">class</span> <span class="typ">AdjListUndirNetwork</span> {
+<span class="kw">protected</span>:
+    <span class="kw">int</span> vexNum, vexMaxNum, arcNum;
+    <span class="typ">AdjListNetWorkVex</span>&lt;<span class="typ">ElemType</span>, <span class="typ">WeightType</span>&gt; *vexTable;
+    <span class="kw">mutable</span> <span class="typ">Status</span> *tag;
+    <span class="typ">WeightType</span> infinity;
+
+    <span class="cm">// 辅助：DFS遍历（用于求连通分量数目）</span>
+    <span class="kw">void</span> <span class="fn">DFS</span>(<span class="kw">int</span> v, <span class="kw">bool</span>* visited) <span class="kw">const</span> {
+        visited[v] = <span class="kw">true</span>;
+        <span class="kw">for</span> (<span class="typ">AdjListNetworkArc</span>&lt;<span class="typ">WeightType</span>&gt; *p = vexTable[v].firstarc; p != <span class="num">NULL</span>; p = p-&gt;nextarc) {
+            <span class="kw">if</span> (!visited[p-&gt;adjVex]) <span class="fn">DFS</span>(p-&gt;adjVex, visited);
+        }
+    }
+};
+</pre>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 4: 顶点度数统计 CountDegree -->
+        <div class="slide-container" id="p4">
+            <h2 class="slide-title">顶点度数统计<span>CountDegree(v)</span></h2>
+            <div class="content-area">
+                <!-- 完美对称的 50% 50% 网格布局 -->
+                <div class="anim-1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;">
+                    
+                    <!-- 左侧：CountDegree 算法逻辑剖析 -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <!-- 边界控制板块 -->
+                            <div style="margin-bottom: 24px;">
+                                <h4 style="color: var(--primary); font-size: 32px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-shield-halved" style="font-size: 20px;"></i> 索引边界安全验证
+                                </h4>
+                                <p>若顶点索引 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">v</strong> 小于 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">0</strong> 或大于等于最大顶点数 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">vexNum</strong>，则返回错误，防止越界访问</p>
+                            </div>
+                            
+                            <!-- 链表迭代板块 -->
+                            <div style="margin-bottom: 24px;">
+                                <h4 style="color: var(--cyber-cyan); font-size: 32px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-arrows-spin" style="font-size: 20px;"></i> 链表迭代计数机制
+                                </h4>
+                                <p>定义临时工作指针获取该节点的首条边 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">firstarc</strong>，顺着指针链表迭代，在直到 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">NULL</strong> 的循环体中，持续对度数累加并往后驱动</p>
+                            </div>
+                            
+                            <!-- 活跃度评价板块 -->
+                            <div>
+                                <h4 style="color: var(--accent); font-size: 32px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-chart-line" style="font-size: 20px;"></i> 算法复杂度与拓扑活跃度
+                                </h4>
+                                <p style="margin-bottom: 12px;">时间复杂度与度数向关联： <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">O(n)</strong></p>
+                                <p>算法未开辟额外动态存储区，因而空间复杂度: <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">O(1)</strong></p>
+                                
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：CountDegree 算法实现窗口 -->
+                    <div class="code-window">
+<pre>
+<span class="kw">int</span> <span class="fn">CountDegree</span>(<span class="kw">int</span> v) <span class="kw">const</span> {
+    <span class="kw">if</span> (v &lt; <span class="num">0</span> || v &gt;= vexNum) <span class="kw">return</span> -<span class="num">1</span>;
+    <span class="kw">int</span> degree = <span class="num">0</span>;
+    <span class="typ">AdjListNetworkArc</span>&lt;<span class="typ">WeightType</span>&gt; *p = vexTable[v].firstarc;
+    <span class="kw">while</span> (p) {
+        degree++;
+        p = p-&gt;nextarc;
+    }
+    <span class="kw">return</span> degree;
+}
+</pre>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 5: 连通分量数 ConnectedComponent -->
+        <div class="slide-container" id="p5">
+            <h2 class="slide-title">图的连通分量计数<span>ConnectedComponent()</span></h2>
+            <div class="content-area">
+                <!-- 完美等宽平分 50% 50% 布局 -->
+                <div class="anim-1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;">
+                    
+                    <!-- 左侧：连通分量算法逻辑与技术细节 -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <!-- 外层循环与动态标记板块 -->
+                            <div style="margin-bottom: 18px;">
+                                <h4 style="color: var(--primary); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-arrows-to-dot" style="font-size: 20px;"></i> 外循环迭代与状态标记
+                                </h4>
+                                <p>为了不改变类内部的原始邻接表数据，开辟局部布尔数组 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">visited</strong> 用于追踪访问状态，外层循环遍历所有顶点</p>
+                            </div>
+                            
+                            <!-- 计数与DFS触发板块 -->
+                            <div style="margin-bottom: 18px;">
+                                <h4 style="color: var(--cyber-cyan); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-layer-group" style="font-size: 20px;"></i> 搜索触发与计数机制
+                                </h4>
+                                <p>每探寻到未被访问过的顶点，即找到了一个新的连通分支，则触发 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">DFS()</strong>，递归标记该连通分支内的全部节点。通过累加变量 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">count++</strong> ，统计分量数</p>
+                            </div>
+                            
+                            <!-- 前提支撑分析板块 -->
+                            <div>
+                                <h4 style="color: var(--accent); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 20px;"></i> 复杂度分析
+                                </h4>
+                                <p style="margin-bottom: 12px;">时间复杂度： <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">O(V + E)</strong></p>
+                                <p>空间复杂度为分配访问标记所需的规模： <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">O(V)</strong></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：ConnectedComponent 算法代码 -->
+                    <div class="code-window">
+<pre>
+<span class="kw">int</span> <span class="fn">ConnectedComponent</span>() <span class="kw">const</span> {
+    <span class="cm">// 创建访问标记局部数组</span>
+    <span class="kw">bool</span> *visited = <span class="kw">new</span> <span class="kw">bool</span>[vexNum];
+    <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; vexNum; i++) {
+        visited[i] = <span class="kw">false</span>;
+    }
+
+    <span class="kw">int</span> count = <span class="num">0</span>;
+    <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; vexNum; i++) {
+        <span class="kw">if</span> (!visited[i]) {
+            count++; <span class="cm">// 触发新连通分量的 DFS</span>
+            <span class="fn">DFS</span>(i, visited);
+        }
+    }
+
+    <span class="kw">delete</span>[] visited; <span class="cm">// 释放局部堆空间</span>
+    <span class="kw">return</span> count;
+}
+</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 6: Borůvka 算法 (精简版高质可视化) -->
+        <div class="slide-container" id="p6">
+            <h2 class="slide-title">Boruvka 算法：分治合并</h2>
+            <div class="content-area">
+                <!-- 强制性像素网格控制：左侧自适应 1fr，右侧绝对像素锁死为 650px -->
+                <div class="anim-1" style="display: grid; grid-template-columns: 1fr 650px !important; gap: 40px; align-items: center;">
+                    
+                    <!-- 左侧：核心逻辑说明 -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <div style="margin-bottom: 24px;">
+                                <h4 style="color: var(--primary); font-size: 32px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-route" style="font-size: 20px;"></i> 核心思想与分段合并
+                                </h4>
+                                <p>将每个点初始化为独立的连通块，每一轮遍历所有块，独立为其寻找一条通往其他块的权重最小的<strong>“出边”</strong>，通过多路同时合并机制极大地减少合并轮次</p>
+                            </div>
+                            <div>
+                                <h4 style="color: var(--cyber-cyan); font-size: 32px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-gauge-high" style="font-size: 20px;"></i> 复杂度优势
+                                </h4>
+                                <p>因每轮合并能使全图连通块的数量至少折半，算法最多在 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">log V</strong> 轮后完成，时间复杂度达到 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">O(E log V)</strong></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：绝对宽度与高度硬锁定、绝对 SVG 尺寸锁定的可视化区域 -->
+                    <div class="viz-window">
+                        <!-- 这里的 width 与 height 显式绑定像素值，svg-viewBox 严格限制 600x500，实现真正的物理防抖 -->
+                        <svg id="boruvka-svg" width="520" height="320" viewBox="0 0 600 500"></svg>
+                        <div class="viz-status-bar" id="boruvka-status">初始化就绪：点击下方执行第一步</div>
+                        <button class="viz-btn" id="boruvka-btn" onclick="nextBoruvkaStep()">执行下一阶段</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 7: Borůvka 算法复杂拓扑演练 -->
+        <div class="slide-container" id="p7">
+            <h2 class="slide-title">Boruvka 算法：复杂拓扑</h2>
+            <div class="content-area">
+                <div class="anim-1 class-bor-layout-fix">
+                    <div class="bor-main-layout">
+                        <!-- 左侧：完全精简为用户制定的卡片式内容，并提升了字号 -->
+                        <div class="bor-logic-panel">
+                            <div class="bor-info-card" style="border-left: 5px solid rgba(255,255,255,0.3);">
+                                <h4><i class="fas fa-bullseye"></i> 运行初始化定义</h4>
+                                <p><b>初始化</b>：置连通块数 <span class="bor-code-inline">components = vexNum</span></p>
+                            </div>
+                            
+                            <div class="bor-info-card" style="border-left: 5px solid var(--primary);">
+                                <h4><i class="fas fa-layer-group"></i> 多路合并与条件并查</h4>
+                                <p>主循环 <span class="bor-code-inline">while (components &gt; 1 &amp;&amp; canMerge)</span></p>
+                                <p>• <b>跨块判定</b>：双重循环遍历网中边对，若满足 <span class="bor-code-inline">Find(v1) != Find(v2)</span>，则其为分量间跨块出边</p>
+                                <p>• <b>出边入队</b>：将候选弧推入各根节点小顶堆队列中</p>
+                            </div>
+                            
+                            <div class="bor-info-card" style="border-left: 5px solid var(--cyber-cyan);">
+                                <h4><i class="fas fa-shield-halved"></i> 二次防环与树连通判断</h4>
+                                <p>• <b>防环校验</b>：从堆顶取出最小出边时，必须<b>再次检查</b>并确保 <span class="bor-code-inline">Find(v1) != Find(v2)</span>，通过后方可执行 <span class="bor-code-inline">Union(v1, v2)</span></p>
+                                <p>• 循环跳出后若 <span class="bor-code-inline">components &gt; 1</span>，即图非连通</p>
+                            </div>
+                        </div>
+
+                        <!-- 右侧：放大了结点的绝对尺寸与权值的高质可视化视窗 -->
+                        <div class="viz-window">
+                            <svg id="complex-boruvka-svg" width="520" height="320" viewBox="0 0 600 500"></svg>
+                            <div class="viz-status-bar" id="complex-boruvka-status">初始化就绪：点击下方执行复杂拓扑合并</div>
+                            <button class="viz-btn" id="complex-boruvka-btn" onclick="nextComplexBoruvkaStep()">执行下一阶段</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 8: Boruvka 代码分析 (新增页) -->
+        <div class="slide-container" id="p8">
+            <h2 class="slide-title">Boruvka 算法实现逻辑</h2>
+            <div class="content-area">
+                <div class="bor-main-layout">
+                    <!-- 左侧：代码解释 -->
+                    <div class="bor-logic-panel">
+                        <div class="bor-info-card" style="border-left-color: var(--primary);">
+                            <h4><i class="fas fa-layer-group"></i> 初始化与并查集</h4>
+                            <p>利用 <span class="bor-code-inline">UFSets</span> 维护顶点连通性，初始时将每个顶点视为一个独立分量，<span class="bor-code-inline">components</span> 设为顶点总数</p>
+                        </div>
+                        
+                        <div class="bor-info-card" style="border-left-color: var(--cyber-cyan);">
+                            <h4><i class="fas fa-search"></i> 跨块最小边检索</h4>
+                            <p>遍历所有边，若满足 <span class="bor-code-inline">Find(v1) != Find(v2)</span>，则将该边推入分量根节点专属的优先队列 <span class="bor-code-inline">pqs</span> 中</p>
+                        </div>
+                        
+                        <div class="bor-info-card" style="border-left-color: var(--primary);">
+                            <h4><i class="fas fa-code-branch"></i> 级联合并</h4>
+                            <p>取出堆顶最优边后，<b>必须二次检查</b>两个端点是否仍分属不同分量，防止在已连通导致合并成环</p>
+                        </div>
+
+                        <div class="bor-info-card" style="border-left-color: var(--cyber-cyan);">
+                            <p>当满足 <span class="bor-code-inline">components == 1</span> 或无法继续合并时跳出，支持生成最小生成森林以应对非连通图</p>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：代码框 -->
+                    <div class="code-window">
+<pre>
+    <span class="kw">void</span> <span class="fn">Boruvka</span>() {
+        <span class="kw">if</span>(vexNum &lt;= <span class="num">0</span>) <span class="kw">return</span>;
+        <span class="kw">typedef</span> <span class="typ">BoruvkaEdge</span>&lt;<span class="typ">ElemType</span>, <span class="typ">WeightType</span>&gt; <span class="typ">BEdge</span>;
+        <span class="typ">ElemType</span> v1, v2;
+        <span class="typ">WeightType</span> totalWeight = <span class="num">0</span>;
+
+        <span class="cm">// 初始化顶点数据和并查集</span>
+        <span class="typ">vector</span>&lt;<span class="typ">ElemType</span>&gt; <span class="fn">kVex</span>(vexNum + <span class="num">1</span>);
+        <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; vexNum; i++) kVex[i] = vexTable[i].data;
+        <span class="typ">UFSets</span>&lt;<span class="typ">ElemType</span>&gt; <span class="fn">f</span>(kVex.data(), vexNum);
+        <span class="kw">int</span> components = vexNum;
+        <span class="kw">bool</span> canMerge = <span class="kw">true</span>;
+
+        <span class="cm">// Boruvka 主循环</span>
+        <span class="kw">while</span> (components &gt; <span class="num">1</span> &amp;&amp; canMerge) {
+            canMerge = <span class="kw">false</span>;
+            <span class="cm">// 每个分量只记录一条最小出边，-1 表示该分量无出边</span>
+            <span class="typ">vector</span>&lt;<span class="kw">int</span>&gt; <span class="fn">cheapest</span>(vexNum, -<span class="num">1</span>);
+            <span class="typ">vector</span>&lt;<span class="typ">BEdge</span>&gt; <span class="fn">cheapEdge</span>(vexNum);
+
+            <span class="cm">// 遍历所有边，为每个分量找最小出边</span>
+            <span class="kw">for</span> (<span class="kw">int</span> v = <span class="num">0</span>; v &lt; vexNum; v++) {
+                <span class="kw">for</span> (<span class="kw">int</span> u = <span class="fn">FirstAdjVex</span>(v); u &gt;= <span class="num">0</span>; u = <span class="fn">NextAdjVex</span>(v, u)) {
+                    <span class="fn">GetElem</span>(v, v1); <span class="fn">GetElem</span>(u, v2);
+                    <span class="kw">if</span> (f.<span class="fn">Find</span>(v1) != f.<span class="fn">Find</span>(v2)) {
+                        <span class="kw">int</span> root = f.<span class="fn">Find</span>(v1);
+                        <span class="typ">WeightType</span> w = <span class="fn">GetWeight</span>(v, u);
+                        <span class="cm">// 若该分量还没有候选边，或当前边更小，则更新</span>
+                        <span class="kw">if</span> (cheapest[root] == -<span class="num">1</span> || w &lt; cheapEdge[root].weight) {
+                            cheapest[root] = <span class="num">1</span>;
+                            cheapEdge[root] = {v1, v2, w};
+                        }
+                    }
+                }
+            }
+
+            <span class="cm">// 尝试合并每个分量的最小出边</span>
+            <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; vexNum; i++) {
+                <span class="kw">if</span> (cheapest[i] != -<span class="num">1</span>) {
+                    v1 = cheapEdge[i].vertex1;
+                    v2 = cheapEdge[i].vertex2;
+                    <span class="kw">if</span> (f.<span class="fn">Find</span>(v1) != f.<span class="fn">Find</span>(v2)) {
+                        cout &lt;&lt; <span class="str">"选中边:("</span> &lt;&lt; v1 &lt;&lt; <span class="str">","</span> &lt;&lt; v2 &lt;&lt; <span class="str">") 权:"</span> &lt;&lt; cheapEdge[i].weight &lt;&lt; endl;
+                        f.<span class="fn">Union</span>(v1, v2);
+                        totalWeight += cheapEdge[i].weight;
+                        components--;
+                        canMerge = <span class="kw">true</span>;
+                    }
+                }
+            }
+        }
+        <span class="kw">if</span> (components &gt; <span class="num">1</span>) cout &lt;&lt; <span class="str">"图不连通，生成最小生成森林。"</span> &lt;&lt; endl;
+        cout &lt;&lt; <span class="str">"总权值: "</span> &lt;&lt; totalWeight &lt;&lt; endl;
+    }
+</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 9: Borůvka 算法分析 (已模仿 Slide 22 双列设计重塑) -->
+        <div class="slide-container" id="p9">
+            <h2 class="slide-title">Boruvka 算法综合分析</h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; width: 100%;">
+                    <!-- 左列：复杂度分析 -->
+                    <div>
+                        <div class="summary-card" style="border-left: 5px solid var(--primary); background: rgba(255,255,255,0.015); border-radius: 12px; padding: 25px;">
+                            <h3 style="color: var(--primary); font-size: 32px; margin-bottom: 20px; border-bottom: 2px solid rgba(74,185,157,0.3); padding-bottom: 10px;">1. 复杂度分析</h3>
+                            <ul class="summary-list" style="list-style: none;">
+                                <li style="margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px;">
+                                    <i class="fa-solid fa-circle-check" style="position: absolute; left: 0; top: 5px; color: var(--primary);"></i>
+                                    <strong>时间复杂度：O(E log V)</strong><br>
+                                    <span style="font-size: 20px; color: var(--text-dim);">循环依次连通块数量 components 至少折半，合并主循环至多执行 O(log V) 次，每轮需线性扫描可用邻接边 O(E) </span>
+                                </li>
+                                <li style="margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px;">
+                                    <i class="fa-solid fa-circle-check" style="position: absolute; left: 0; top: 5px; color: var(--primary);"></i>
+                                    <strong>空间复杂度：O(V + E)</strong><br>
+                                    <span style="font-size: 20px; color: var(--text-dim);">并查集 UFSets 连通状态维护及标记需 O(V) 辅助内存；各连通根分量的优先队列额外占用 O(E) </span>
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(74, 185, 157, 0.1); border: 1px solid var(--primary); border-radius: 8px;">
+                                <p style="font-size: 20px; color: var(--text-main);">相比单向合并，Boruvka 支持<b>多路并发合并</b>，在分布式集群计算场景下性能表现优异</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 右列：核心优缺点 -->
+                    <div>
+                        <div class="summary-card" style="border-left: 5px solid var(--cyber-cyan); background: rgba(255,255,255,0.015); border-radius: 12px; padding: 25px;">
+                            <h3 style="color: var(--cyber-cyan); font-size: 32px; margin-bottom: 20px; border-bottom: 2px solid rgba(0,255,255,0.3); padding-bottom: 10px;">2. 核心优缺点对比</h3>
+                            <ul class="summary-list" style="list-style: none;">
+                                <li style="margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px;">
+                                    <i class="fa-solid fa-circle-check" style="position: absolute; left: 0; top: 5px; color: var(--cyber-cyan);"></i>
+                                    <strong>核心优势：</strong> 算法不需要对边进行全局 O(E log E) 排序；不限于单点单侧盲目扩张，自适应并发构造多连通森林的过程非常直观
+                                </li>
+                                <li style="margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px;">
+                                    <i class="fa-solid fa-circle-check" style="position: absolute; left: 0; top: 5px; color: var(--cyber-cyan);"></i>
+                                    <strong>算法局限：</strong> 在多条边具有相同权值时，必须二次防环和并查集环路判定检测，否则极易形成回路;稠密图常数性能略逊于 Prim 堆优化版
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(0, 255, 255, 0.1); border: 1px solid var(--cyber-cyan); border-radius: 8px;">
+                                <p style="font-size: 19px; color: var(--text-main);">进阶方向：可结合动态并查集，在动态流式网络中实现万级节点的 MST 实时拓扑系统</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 10: MST唯一性判定算法 (重塑防溢出大字号纯文本设计) -->
+        <div class="slide-container" id="p10">
+            <h2 class="slide-title">最小生成树唯一性判定<span>MST Uniqueness Detection</span></h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; width: 100%;">
+                    <!-- 左列：唯一性数学准则与准备阶段 -->
+                    <div>
+                        <div class="summary-card" style="border-left: 5px solid var(--primary);">
+                            <h3 style="color: var(--primary); border-bottom: 2px solid rgba(74,185,157,0.3);">1. 唯一性准则与预处理</h3>
+                            <ul class="summary-list">
+                                <li>
+                                    <i class="fa-solid fa-circle-check" style="color: var(--primary); margin-right: 8px;"></i>
+                                    <strong>核心割准则判定定理：</strong><br>
+                                    <span style="color: var(--text-dim);">对于任何不在树上的非树边 e=(u,v)，其与 MST 唯一路径构成的基本环路中，其权重均 <strong>严格大于</strong> 环路上的所有其他生成边</span>
+                                </li>
+                                <li>
+                                    <i class="fa-solid fa-circle-check" style="color: var(--primary); margin-right: 8px;"></i>
+                                    <strong>边的全局排序：</strong><br>
+                                    <span style="color: var(--text-dim);">对所有边按<b>权值从小到大执行快速排序 O(E log E)</b>，进行同权分组检测</span>
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(74, 185, 157, 0.1); border: 1px solid var(--primary); border-radius: 8px;">
+                                <p style="font-size: 20px; color: var(--text-main);"><b>定理支撑：</b>若图的所有边权重均互不相等，则其 MST 必定唯一；等权边的冲突竞争是产生多重最小生成树的唯一根源</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 右列：同权分组合并判定与结果断言 -->
+                    <div>
+                        <div class="summary-card" style="border-left: 5px solid var(--cyber-cyan);">
+                            <h3 style="color: var(--cyber-cyan); border-bottom: 2px solid rgba(0,255,255,0.3);">2. 同权合并与判定机制</h3>
+                            <ul class="summary-list">
+                                <li>
+                                    <i class="fa-solid fa-circle-check" style="color: var(--cyber-cyan); margin-right: 8px;"></i>
+                                    <strong>同权跨块边候选统计：</strong><br>
+                                    <span style="color: var(--text-dim);">使用双指针滑动窗口划定同权边集，统计同权边中，有多少条边连接了两个不同的并查集分量</span>
+                                </li>
+                                <li>
+                                    <i class="fa-solid fa-circle-check" style="color: var(--cyber-cyan); margin-right: 8px;"></i>
+                                    <strong>级联合并与冲突：</strong><br>
+                                    <span style="color: var(--text-dim);">并查集实际模拟调用 Union 进行真实连通，并统计被合入生成树的实际边数，若两者不等（即实际边数更少），则 MST 不唯一</span>
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(74, 185, 157, 0.1); border: 1px solid var(--primary); border-radius: 8px;">
+                                <p style="font-size: 20px; color: var(--text-main);"><b>几何竞争范例：</b>若同权的三条边形成环路，可选候选数为 3，但实际树中只能容纳 2 条，此时因 2 &lt; 3 所以不唯一</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 11: MST唯一性算法代码实现 -->
+        <div class="slide-container" id="p11">
+            <h2 class="slide-title">MST 唯一性判定实现<span>Uniqueness Source Code</span></h2>
+            <div class="content-area">
+                <!-- 完美等宽平分 50% 50% 布局 -->
+                <div class="anim-1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;">
+                    
+                    <!-- 左侧：连通分量算法逻辑与技术细节 -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <!-- 外层循环与动态标记板块 -->
+                            <div style="margin-bottom: 18px;">
+                                <h4 style="color: var(--primary); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-arrows-to-dot" style="font-size: 20px;"></i> 同权边分组处理
+                                </h4>
+                                <p>所有边升序排列，而后利用滑动窗口确定具有相同权值的边集，对每一组边先统计其可选边，再执行合并</p>
+                            </div>
+                            
+                            <!-- 前提支撑分析板块 -->
+                            <div>
+                                <h4 style="color: var(--cyber-cyan); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fas fa-layer-group" style="font-size: 20px;"></i> 核心判定准则
+                                </h4>
+                                <p>若某组同权边中， <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">countActuallySelected < countCanSelect</strong>，说明存在可替代边，则 MST 不唯一</p>
+                            </div>
+                            <div>
+                                <h4 style="color: var(--accent); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fas fa-code-branch" style="font-size: 20px;"></i> 空间与时间复杂度
+                                </h4>
+                                <p><b>时间复杂度</b>：O(E log E)；收集边：O(V + E)；快速排序：O(E log E)；分组模拟合并时：O(E alpha(V))</p>
+                                <p style="margin-top: 6px;"><b>空间复杂度</b>：O(V + E)；边数组：O(E)；顶点：O(V)</p>
+                                <!-- <p>若某组同权边中， <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">countActuallySelected < countCanSelect</strong>，说明存在可互相替代的边，则 MST 不唯一</p> -->
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 右侧：代码框 -->
+                    <div class="code-window">
+<pre>
+<span class="kw">bool</span> <span class="fn">hasUniqueMinTree</span>() {
+    <span class="kw">struct</span> <span class="typ">TempEdge</span> { <span class="kw">int</span> u, v; <span class="typ">WeightType</span> w; };
+    <span class="typ">vector</span>&lt;<span class="typ">TempEdge</span>&gt; <span class="fn">edges</span>;
+    <span class="cm">//收集并排序</span>
+    <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; vexNum; i++) {
+        <span class="kw">for</span> (<span class="kw">auto</span> *p = vexTable[i].firstarc; p; p = p-&gt;nextarc) {
+            <span class="kw">if</span> (i &lt; p-&gt;adjVex) edges.<span class="fn">push_back</span>({i, p-&gt;adjVex, p-&gt;weight});
+        }
+    }
+    <span class="fn">sort</span>(edges.<span class="fn">begin</span>(), edges.<span class="fn">end</span>(), [](<span class="kw">const</span> <span class="typ">TempEdge</span>&amp; a, <span class="kw">const</span> <span class="typ">TempEdge</span>&amp; b) {
+        <span class="kw">return</span> a.w &lt; b.w;
+    });
+
+    <span class="typ">UFSets</span>&lt;<span class="typ">ElemType</span>&gt; <span class="fn">f</span>(kVex.<span class="fn">data</span>(), vexNum);
+    <span class="cm">//分组处理同权重的边</span>
+    <span class="kw">for</span> (<span class="typ">size_t</span> i = <span class="num">0</span>; i &lt; edges.<span class="fn">size</span>(); ) {
+        <span class="typ">size_t</span> j = i;
+        <span class="kw">while</span> (j &lt; edges.<span class="fn">size</span>() &amp;&amp; edges[j].w == edges[i].w) j++;
+        
+        <span class="kw">int</span> countCanSelect = <span class="num">0</span>;
+        <span class="kw">for</span> (<span class="typ">size_t</span> k = i; k &lt; j; k++) {
+            <span class="kw">if</span> (f.<span class="fn">Find</span>(vexTable[edges[k].u].data) != f.<span class="fn">Find</span>(vexTable[edges[k].v].data))
+                countCanSelect++;
+        }
+
+        <span class="kw">int</span> countActuallySelected = <span class="num">0</span>;
+        <span class="kw">for</span> (<span class="typ">size_t</span> k = i; k &lt; j; k++) {
+            <span class="kw">if</span> (f.<span class="fn">Find</span>(uData) != f.<span class="fn">Find</span>(vData)) {
+                f.<span class="fn">Union</span>(uData, vData);
+                countActuallySelected++;
+            }
+        }
+        <span class="cm">//判断是否唯一</span>
+        <span class="kw">if</span> (countActuallySelected &lt; countCanSelect) <span class="kw">return false</span>;
+        i = j;
+    }
+    <span class="kw">return true</span>;
+}
+</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 12: Kruskal 重构树纯文本逻辑分析 -->
+        <div class="slide-container" id="p12">
+            <h2 class="slide-title">进阶拓展：Kruskal 重构树<span>Reconstruction Tree</span></h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; width: 100%;">
+                    <!-- 左列：概念与本质 -->
+                    <div>
+                        <div class="summary-card" style="border-left: 5px solid var(--primary);">
+                            <h3 style="color: var(--primary); border-bottom: 2px solid rgba(74,185,157,0.3);">1. 核心概念与结构本质</h3>
+                            <ul class="summary-list">
+                                <li>
+                                    <strong>结构定义：</strong>
+                                    <span>基于 Kruskal 算法思想，在并查集合并两个连通分量时，不再直接连接，而是新建一个代表「边」的辅助节点作为两者的父节点</span>
+                                </li>
+                                <li>
+                                    <strong>结构本质：</strong>
+                                    <span>将原始网状图通过「维度升迁」转换为一棵包含 2V-1 个节点的二叉树，它将图的「连通轨迹」映射为树的「层次深度」</span>
+                                </li>
+                            </ul>
+                            <div style="padding: 12px 18px; background: rgba(74, 185, 157, 0.1); border: 1px solid var(--primary); border-radius: 8px;">
+                                <p style="font-size: 18px; color: var(--primary);"> <b>核心转化：</b>图中两点路径上的「最大边权最小值」，等价于重构树中两点 LCA 节点的点权</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 右列：算法思想与应用场景 -->
+                    <div>
+                        <div class="summary-card" style="border-left: 5px solid var(--cyber-cyan);">
+                            <h3 style="color: var(--cyber-cyan); border-bottom: 2px solid rgba(0,255,255,0.3);">2. 算法思想与应用图景</h3>
+                            <ul class="summary-list">
+                                <li>
+                                    <strong>核心思想：</strong>
+                                    <span>利用边权的单调性建树，构造出一棵点权随深度递减/增的堆式树，通过并查集 O(E alpha(V)) 高速完成树结构的重组</span>
+                                </li>
+                                <li>
+                                    <strong>应用场景：</strong><br>
+                                    <span><b>● 瓶颈路查询：</b>LCA极速查询图中任意两点间路径的边权限制<br><b>● 限制可达性：</b>查询仅通过权值 <= K 的边能到达的所有节点子树集合</span>
+                                </li>
+                            </ul>
+                            <div style="padding: 12px 18px; background: rgba(0, 255, 255, 0.1); border: 1px solid var(--cyber-cyan); border-radius: 8px;">
+                                <p style="font-size: 18px; color: var(--cyber-cyan);"> <b>工业价值：</b>常用于分布式网络链路负载均衡分析、复杂交通流压力测试及大规模社交关系的可达性分级</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 13: Kruskal 重构树代码与算法深度演练 -->
+        <div class="slide-container" id="p13">
+            <h2 class="slide-title">Kruskal 重构树算法</h2>
+            <div class="content-area">
+                <div class="bor-main-layout">
+                    <!-- 左侧：结合代码阐释 -->
+                    <div class="bor-logic-panel">
+                        <div class="bor-info-card" style="border-left: 5px solid var(--primary); padding: 10px 15px;">
+                            <h4 style="font-size: 22px;"><i class="fa-solid fa-code-branch"></i> 并查重构与建树化 <span class="bor-code-inline" style="font-size:20px;">void  Ex_kruskal( )</span></h4>
+                            <p style="font-size: 20px; line-height: 1.5;">边权升序排列后，判定若 <span class="bor-code-inline" style="font-size:20px;">fau != fav</span>，则分配一个新父节点 <span class="bor-code-inline" style="font-size:20px;">cntn++ </span>代表边，使其点权 <span class="bor-code-inline" style="font-size:20px;">val[cntn] = cw</span>；另其左右子树分别悬挂原顶点的并查集根节点，实现图向树的重构</p>
+                        </div>
+                        <div class="bor-info-card" style="border-left: 5px solid var(--cyber-cyan); padding: 10px 15px;">
+                            <h4 style="font-size: 22px;"><i class="fa-solid fa-network-wired"></i> 倍增预处理与深搜 <span class="bor-code-inline" style="font-size:20px;">void  DFS( )</span></h4>
+                            <p style="font-size: 20px; line-height: 1.5;">从重构树的各全局根节点向下搜索,利用倍增思想维护 <span class="bor-code-inline" style="font-size:20px;">anc[u][i] = anc[anc[u][i-1]][i-1]</span>，代表节点 u 的第 2^i 个祖先，以便在 O(log V) 复杂度下实现节点跳跃查询</p>
+                        </div>
+                        <div class="bor-info-card" style="border-left: 5px solid var(--accent); padding: 10px 15px;">
+                            <h4 style="font-size: 22px;"><i class="fa-solid fa-shield-halved"></i> 最近公共祖先查询 <span class="bor-code-inline" style="font-size:20px;">int  LCA( )</span></h4>
+                            <p style="font-size: 20px; line-height: 1.5;">为求解路径最值，将两顶点对齐至同一深度后，倍增同时上跳到其最近公共祖先 LCA，返回 <span class="bor-code-inline" style="font-size:20px;">val[lca(x,y)]</span>，即为整条路径上的瓶颈边权</p>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：Kruskal 重构树绝对锁定可视化演练 -->
+                    <div class="viz-window">
+                        <svg id="reconstruct-svg" viewBox="0 0 700 480"></svg>
+                        <div class="viz-status-bar" id="reconstruct-status">等待重构演练初始化...</div>
+                        <button class="viz-btn" id="reconstruct-btn" onclick="nextReconstructStep()">执行下一步</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 14: LCA 倍增预处理与数据结构声明-->
+        <div class="slide-container" id="p14">
+            <h2 class="slide-title">重构树倍增预处理与初始化</h2>
+            <div class="content-area">
+                <div class="slide-container-active" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;">
+                    
+                    <!-- 左侧：等宽50%逻辑文字解释 -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <!-- 数据结构基本定义板块 -->
+                            <div style="margin-bottom: 18px;">
+                                <h4 style="color: var(--primary); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-database" style="font-size: 20px;"></i> 数据结构与并查集
+                                </h4>
+                                <p>采用并查集管理重构树结构，<strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">fa[x]</strong> 维护各个分量的上层指向，<strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">val[cntn]</strong> 承载新重构虚拟父节点点权，对应了合并分量时的路径瓶颈边权值</p>
+                            </div>
+                            
+                            <!-- 深度优先搜索与倍增数组建立 -->
+                            <div style="margin-bottom: 18px;">
+                                <h4 style="color: var(--cyber-cyan); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-diagram-project" style="font-size: 20px;"></i> 倍增 DFS( ) 预处理
+                                </h4>
+                                <p>调用 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">dfs(根节点, 0)</strong> 对每棵重构树初始化，在向下递归的同时，利用动态规划快速维护 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">anc[u][i]</strong> 数组，以实现<strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';"> O(log V) </strong>的最近公共祖先上跳查询</p>
+                            </div>
+                            
+                            <!-- 复杂度与倍增阶梯分析 -->
+                            <div>
+                                <h4 style="color: var(--accent); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-clock" style="font-size: 20px;"></i> 复杂度与LCA递推方程
+                                </h4>
+                                <p style="margin-bottom: 12px;">递推方程：<strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">anc[u][i]=anc[anc[u][i-1]][i-1]</strong></p>
+                                <p>时间复杂度：建立状态时间复杂度为 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">O(V log V)</strong></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：等宽50%代码显示框 -->
+                    <div class="code-window">
+<pre>
+<span class="kw">#define</span> <span class="typ">ll</span> <span class="kw">long long</span>
+<span class="kw">const</span> <span class="kw">int</span> <span class="typ">N</span> = <span class="num">2</span> * (<span class="num">2e5</span> + <span class="num">5</span>);
+<span class="kw">const</span> <span class="kw">int</span> <span class="typ">LOG</span> = <span class="num">25</span>;
+<span class="typ">ll</span> <span class="typ">fa</span>[<span class="typ">N</span>], <span class="typ">depth</span>[<span class="typ">N</span>], <span class="typ">val</span>[<span class="typ">N</span>];
+<span class="typ">vector</span>&lt;<span class="typ">ll</span>&gt; <span class="typ">tree</span>[<span class="typ">N</span>];
+<span class="typ">ll</span> <span class="typ">anc</span>[<span class="typ">N</span>][<span class="typ">LOG</span>];
+
+<span class="kw">struct</span> <span class="typ">edge</span> {
+    <span class="kw">int</span> <span class="typ">u</span>, <span class="typ">v</span>, <span class="typ">w</span>;
+};
+<span class="kw">bool</span> <span class="fn">cmp</span>(<span class="typ">edge</span> <span class="typ">a</span>, <span class="typ">edge</span> <span class="typ">b</span>) {
+    <span class="kw">return</span> <span class="typ">a</span>.<span class="typ">w</span> < <span class="typ">b</span>.<span class="typ">w</span>;
+}
+
+<span class="kw">int</span> <span class="fn">find</span>(<span class="kw">int</span> <span class="typ">x</span>) {
+    <span class="kw">if</span> (<span class="typ">fa</span>[<span class="typ">x</span>] == <span class="typ">x</span>) <span class="kw">return</span> <span class="typ">x</span>;
+    <span class="kw">return</span> <span class="typ">fa</span>[<span class="typ">x</span>] = <span class="fn">find</span>(<span class="typ">fa</span>[<span class="typ">x</span>]);
+}
+
+<span class="kw">void</span> <span class="fn">dfs</span>(<span class="kw">int</span> <span class="typ">u</span>, <span class="kw">int</span> <span class="typ">fa</span>) {
+    <span class="typ">anc</span>[<span class="typ">u</span>][<span class="num">0</span>] = <span class="typ">fa</span>; <span class="cm">// u的第2^0个祖先</span>
+    <span class="typ">depth</span>[<span class="typ">u</span>] = <span class="typ">depth</span>[<span class="typ">fa</span>] + <span class="num">1</span>;
+    <span class="kw">for</span> (<span class="kw">int</span> <span class="typ">i</span> = <span class="num">1</span>; <span class="typ">i</span> &lt; <span class="typ">LOG</span>; <span class="typ">i</span>++) {
+        <span class="typ">anc</span>[<span class="typ">u</span>][<span class="typ">i</span>] = <span class="typ">anc</span>[<span class="typ">anc</span>[<span class="typ">u</span>][<span class="typ">i</span> - <span class="num">1</span>]][<span class="typ">i</span> - <span class="num">1</span>];
+    }
+    <span class="kw">for</span> (<span class="kw">int</span> <span class="typ">i</span> = <span class="num">0</span>; <span class="typ">i</span> &lt; (<span class="kw">int</span>)<span class="typ">tree</span>[<span class="typ">u</span>].<span class="fn">size</span>(); <span class="typ">i</span>++) {
+        <span class="kw">if</span> (<span class="typ">tree</span>[<span class="typ">u</span>][<span class="typ">i</span>] != <span class="typ">fa</span>) {
+            <span class="fn">dfs</span>(<span class="typ">tree</span>[<span class="typ">u</span>][<span class="typ">i</span>], <span class="typ">u</span>);
+        }
+    }
+    <span class="kw">return</span>;
+}
+</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 15: 建树逻辑与查询解算 (精细对照版) -->
+        <div class="slide-container" id="p15">
+            <h2 class="slide-title">建树逻辑与瓶颈查询</h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;">
+                    <!-- 左侧：文字解释 (Slide 8/Slide 5 格式大字号对照) -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <!-- 外层循环与动态标记板块 -->
+                            <div style="margin-bottom: 18px;">
+                                <h4 style="color: var(--primary); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-network-wired" style="font-size: 20px;"></i> <code>Ex_kruskal</code> 建树与树森林DFS
+                                </h4>
+                                <p>重构建树后对所有连通块根节点执行 <strong style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">dfs</strong>，从而对每棵重构树初始化</p>
+                            </div>
+                            
+                            <!-- 计数与DFS触发板块 -->
+                            <div style="margin-bottom: 18px;">
+                                <h4 style="color: var(--cyber-cyan); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-arrows-split-up-and-left" style="font-size: 20px;"></i> <strong  style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">lca</strong> 二进制倍增跳跃
+                                </h4>
+                                <p>采用二进制拆分将深节点 <strong  style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">u</strong> 提升至与 <strong  style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">v</strong> 相同的深度，随后从大步 <strong  style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">(1<<24)</strong> 开始依次递减尝试迈步，保证两点能同步上升至最近公共祖先的紧邻子节点</p>
+                            </div>
+                            
+                            <!-- 前提支撑分析板块 -->
+                            <div>
+                                <h4 style="color: var(--accent); font-size: 32px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; font-weight: 700;">
+                                    <i class="fa-solid fa-circle-question" style="font-size: 20px;"></i> 求解 <strong  style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">solve</strong>
+                                </h4>
+                                <p><strong  style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">find(x) != find(y)</strong> 即节点不连通时返回 <strong  style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">-1</strong>，否则两节点的 LCA 虚拟点权 <strong  style="color: var(--cyber-cyan); font-family: 'JetBrains Mono';">val[lca(x,y)]</strong> 即为该路径上起控制决定的<strong>瓶颈边权</strong></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：代码显示框 (语法高亮) -->
+                    <div class="code-window">
+<pre><span class="kw">void</span> <span class="fn">Ex_kruskal</span>() { <span class="cm">// 重构树构建</span>
+    <span class="typ">cntn</span> = <span class="typ">n</span>;
+    <span class="fn">sort</span>(<span class="typ">side</span> + <span class="num">1</span>, <span class="typ">side</span> + <span class="typ">m</span> + <span class="num">1</span>, <span class="typ">cmp</span>);
+    <span class="kw">for</span> (<span class="kw">int</span> <span class="typ">i</span> = <span class="num">1</span>; <span class="typ">i</span> &lt; <span class="num">2</span> * <span class="typ">n</span>; <span class="typ">i</span>++) <span class="typ">fa</span>[<span class="typ">i</span>] = <span class="typ">i</span>;
+    <span class="kw">for</span> (<span class="kw">int</span> <span class="typ">i</span> = <span class="num">1</span>; <span class="typ">i</span> &lt;= <span class="typ">m</span>; <span class="typ">i</span>++) {
+        <span class="kw">int</span> <span class="typ">fau</span> = <span class="fn">find</span>(<span class="typ">side</span>[<span class="typ">i</span>].<span class="typ">u</span>), <span class="typ">fav</span> = <span class="fn">find</span>(<span class="typ">side</span>[<span class="typ">i</span>].<span class="typ">v</span>);
+        <span class="typ">ll</span> <span class="typ">cw</span> = <span class="typ">side</span>[<span class="typ">i</span>].<span class="typ">w</span>;
+        <span class="kw">if</span> (<span class="typ">fau</span> == <span class="typ">fav</span>) <span class="kw">continue</span>;
+        <span class="typ">cntn</span>++;
+        <span class="typ">fa</span>[<span class="typ">fau</span>] = <span class="typ">fa</span>[<span class="typ">fav</span>] = <span class="typ">fa</span>[<span class="typ">cntn</span>] = <span class="typ">cntn</span>; <span class="cm">// 并查集更新</span>
+        <span class="typ">val</span>[<span class="typ">cntn</span>] = <span class="typ">cw</span>;
+        <span class="typ">tree</span>[<span class="typ">cntn</span>].<span class="fn">push_back</span>(<span class="typ">fau</span>);
+        <span class="typ">tree</span>[<span class="typ">cntn</span>].<span class="fn">push_back</span>(<span class="typ">fav</span>); <span class="cm">// 建树</span>
+        <span class="kw">if</span> (<span class="typ">cntn</span> == <span class="num">2</span> * <span class="typ">n</span> - <span class="num">1</span>) <span class="kw">break</span>;
+    }
+    <span class="kw">for</span> (<span class="kw">int</span> <span class="typ">i</span> = <span class="typ">cnt</span>; <span class="typ">i</span> &lt;= <span class="typ">cntn</span>; <span class="typ">i</span>++) {
+        <span class="kw">int</span> <span class="typ">x</span> = <span class="fn">find</span>(<span class="typ">i</span>);
+        <span class="kw">if</span> (<span class="typ">vis</span>[<span class="typ">x</span>]) <span class="kw">continue</span>;
+        <span class="fn">dfs</span>(<span class="typ">x</span>, <span class="num">0</span>);
+        <span class="typ">vis</span>[<span class="typ">x</span>] = <span class="num">1</span>;
+    }
+}
+
+<span class="typ">ll</span> <span class="fn">lca</span>(<span class="kw">int</span> <span class="typ">u</span>, <span class="kw">int</span> <span class="typ">v</span>) {
+    <span class="kw">if</span> (<span class="typ">depth</span>[<span class="typ">u</span>] &lt; <span class="typ">depth</span>[<span class="typ">v</span>]) <span class="fn">swap</span>(<span class="typ">u</span>, <span class="typ">v</span>);
+    <span class="kw">int</span> <span class="typ">diff</span> = <span class="typ">depth</span>[<span class="typ">u</span>] - <span class="typ">depth</span>[<span class="typ">v</span>]; <span class="cm">// u需要向上跳diff步</span>
+    <span class="kw">for</span> (<span class="kw">int</span> <span class="typ">i</span> = <span class="num">0</span>; <span class="typ">i</span> &lt; <span class="typ">LOG</span>; <span class="typ">i</span>++) {
+        <span class="kw">if</span> (<span class="typ">diff</span> &amp; (<span class="num">1</span> &lt;&lt; <span class="typ">i</span>)) <span class="typ">u</span> = <span class="typ">anc</span>[<span class="typ">u</span>][<span class="typ">i</span>];
+    }
+    <span class="kw">if</span> (<span class="typ">u</span> == <span class="typ">v</span>) <span class="kw">return</span> <span class="typ">u</span>; <span class="cm">// 找到公共祖先了</span>
+    <span class="kw">for</span> (<span class="kw">int</span> <span class="typ">i</span> = <span class="typ">LOG</span> - <span class="num">1</span>; <span class="typ">i</span> &gt;= <span class="num">0</span>; <span class="typ">i</span>--) { <span class="cm">// 先迈大步</span>
+        <span class="kw">if</span> (<span class="typ">anc</span>[<span class="typ">u</span>][<span class="typ">i</span>] != <span class="typ">anc</span>[<span class="typ">v</span>][<span class="typ">i</span>]) {
+            <span class="typ">u</span> = <span class="typ">anc</span>[<span class="typ">u</span>][<span class="typ">i</span>];
+            <span class="typ">v</span> = <span class="typ">anc</span>[<span class="typ">v</span>][<span class="typ">i</span>];
+        }
+    }
+    <span class="kw">return</span> <span class="typ">anc</span>[<span class="typ">u</span>][<span class="num">0</span>];
+}
+
+<span class="kw">void</span> <span class="fn">solve</span>() {
+    <span class="typ">cin</span> &gt;&gt; <span class="typ">x</span> &gt;&gt; <span class="typ">y</span>;
+    <span class="kw">if</span> (<span class="fn">find</span>(<span class="typ">x</span>) != <span class="fn">find</span>(<span class="typ">y</span>)) {
+        <span class="typ">cout</span> &lt;&lt; <span class="num">-1</span> &lt;&lt; <span class="typ">endl</span>;
+        <span class="kw">return</span>;
+    }
+    <span class="typ">cout</span> &lt;&lt; <span class="typ">val</span>[<span class="fn">lca</span>(<span class="typ">x</span>, <span class="typ">y</span>)] &lt;&lt; <span class="typ">endl</span>;
+}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 16: 传统MST暴力求解 vs Kruskal重构树 (Slide 9 风格双列设计) -->
+        <div class="slide-container" id="p16">
+            <h2 class="slide-title">算法对比与分析</h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; width: 100%;">
+                    <!-- 左列：传统 MST 暴力求解 -->
+                    <div>
+                        <div class="summary-card" style="border-left: 5px solid var(--primary); background: rgba(255,255,255,0.015); border-radius: 12px; padding: 25px;">
+                            <h3 style="color: var(--primary); font-size: 32px; margin-bottom: 20px; border-bottom: 2px solid rgba(74,185,157,0.3); padding-bottom: 10px;">1. 传统 MST 暴力求解 (树上遍历)</h3>
+                            <ul class="summary-list" style="list-style: none;">
+                                <li style="margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px;">
+                                    <i class="fa-solid fa-circle-xmark" style="position: absolute; left: 0; top: 5px; color: var(--danger);"></i>
+                                    <strong>时间复杂度：O(V) 单次查询</strong><br>
+                                    <span style="font-size: 20px; color: var(--text-dim);">无额外初始化，但每次需 DFS 遍历，复杂度为 O(V)</span>
+                                </li>
+                                <li style="margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px;">
+                                    <i class="fa-solid fa-circle-check" style="position: absolute; left: 0; top: 5px; color: var(--primary);"></i>
+                                    <strong>空间复杂度：O(V + E)</strong><br>
+                                    <span style="font-size: 20px; color: var(--text-dim);">仅需维护基本生成树的邻接表拓扑空间，无需建立复杂的状态索引或倍增指针结构，内存占用小</span>
+                                </li>
+                                <li style="margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px;">
+                                    <i class="fa-solid fa-triangle-exclamation" style="position: absolute; left: 0; top: 5px; color: var(--accent);"></i>
+                                    <strong>核心局限：</strong>树上简单路径唯一但无单调顺序，多次检索时会重复寻路遍历
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(74, 185, 157, 0.1); border: 1px solid var(--primary); border-radius: 8px;">
+                                <p style="font-size: 20px; color: var(--text-main);">使用场景：生成树拓扑极小且查询少的<b>单次查询</b>系统</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 右列：Kruskal重构树 -->
+                    <div>
+                        <div class="summary-card" style="border-left: 5px solid var(--cyber-cyan); background: rgba(255,255,255,0.015); border-radius: 12px; padding: 25px;">
+                            <h3 style="color: var(--cyber-cyan); font-size: 32px; margin-bottom: 20px; border-bottom: 2px solid rgba(0,255,255,0.3); padding-bottom: 10px;">2. Kruskal 重构树 + 倍增 LCA</h3>
+                            <ul class="summary-list" style="list-style: none;">
+                                <li style="margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px;">
+                                    <i class="fa-solid fa-circle-check" style="position: absolute; left: 0; top: 5px; color: var(--cyber-cyan);"></i>
+                                    <strong>时间复杂度：O(log V) 单次查询</strong><br>
+                                    <span style="font-size: 20px; color: var(--text-dim);">O(V log V) 重构建树与倍增预处理，此后单次 LCA 查询通过二进制跳跃仅需 O(log V) </span>
+                                </li>
+                                <li style="margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px;">
+                                    <i class="fa-solid fa-circle-exmark" style="position: absolute; left: 0; top: 5px; color: var(--danger);"></i>
+                                    <strong>空间复杂度：O(V log V)</strong><br>
+                                    <span style="font-size: 20px; color: var(--text-dim);">需维护额外 2N 规模的重构二叉树结构，以及保存深度、点权和存储 anc[2N][25] 的倍增阶梯树辅助空间</span>
+                                </li>
+                                <li style="margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px;">
+                                    <i class="fa-solid fa-circle-check" style="position: absolute; left: 0; top: 5px; color: var(--cyber-cyan);"></i>
+                                    <strong>绝对优势：</strong>建立具有权值堆性质的二叉树，将问题转化为了常规的查询 LCA 点权
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(0, 255, 255, 0.1); border: 1px solid var(--cyber-cyan); border-radius: 8px;">
+                                <p style="font-size: 19px; color: var(--text-main);">使用场景：<b>分布式网络规划</b>、高数量级拓扑网瓶颈计算等</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 17: 谢谢页 -->
+        <div class="slide-container next-enter" id="slide-17">
+            <div class="content-area" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center;">
+                
+                <!-- 装饰性图标 -->
+                <div class="animate-item" style="margin-bottom: 30px;">
+                    <div style="width: 100px; height: 100px; border: 2px solid var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative;">
+                        <i class="fas fa-code-branch" style="font-size: 40px; color: var(--cyber-cyan);"></i>
+                        <div style="position: absolute; width: 120%; height: 120%; border: 1px dashed var(--primary); border-radius: 50%; opacity: 0.3; animation: spin 10s linear infinite;"></div>
+                    </div>
+                </div>
+
+                <h1 class="animate-item" style="font-size: 72px; font-weight: 700; background: linear-gradient(135deg, var(--text-main) 30%, var(--primary)); background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px;">
+                    感谢观看
+                </h1>
+                
+                <p class="animate-item" style="font-size: 24px; color: var(--cyber-cyan); letter-spacing: 8px; margin-bottom: 50px; opacity: 0.8;">
+                    THANK YOU FOR WATCHING
+                </p>
+
+                <div class="animate-item" style="width: 200px; height: 2px; border-bottom: 2px solid var(--primary); margin-bottom: 40px;"></div>
+
+                <div class="animate-item" style="display: flex; gap: 40px; font-size: 18px; color: var(--text-dim);">
+                    <span><i class="fas fa-users" style="margin-right: 10px; color: var(--primary);"></i> 第10小组</span>
+                    <span><i class="fas fa-calendar-alt" style="margin-right: 10px; color: var(--primary);"></i> 2026.05</span>
+                </div>
+
+                <div class="animate-item" style="margin-top: 60px;">
+                    <p style="font-size: 24px; color: rgba(255, 255, 255, 0.655); font-family: 'JetBrains Mono';">
+                        Xxx、Xxx、Xxx
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="progress-bar" id="progress">17 / 17</div>
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 17;
+        const slides = document.querySelectorAll('.slide-container');
+        const progressText = document.getElementById('progress');
+
+        // 原生翻页控制架构
+        function updateSlide() {
+            slides.forEach((s, i) => s.classList.toggle('active', i === currentSlide - 1));
+            progressText.innerText = `${currentSlide} / ${totalSlides}`;
+        }
+        function changeSlide(direction) {
+            currentSlide += direction;
+            if (currentSlide > totalSlides) currentSlide = 1;
+            if (currentSlide < 1) currentSlide = totalSlides;
+            updateSlide();
+        }
+        // 键盘翻页支持
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'ArrowRight' || event.key === ' ') {
+                changeSlide(1);
+            } else if (event.key === 'ArrowLeft') {
+                changeSlide(-1);
+            }
+        });
+
+       // --- Borůvka 精炼版 (6 节点) 动态可视化脚本 ---
+        // 节点坐标向四周进行收紧微调并整体等比例上移，完美解决 48 像素大半径在底部被遮挡截断的问题
+        const nodes = [
+            {id: 'A', x: 80, y: 160}, {id: 'B', x: 300, y: 90}, {id: 'C', x: 520, y: 170},
+            {id: 'D', x: 80, y: 330}, {id: 'E', x: 300, y: 410}, {id: 'F', x: 520, y: 330}
+        ];
+        const edges = [
+            {id: 'AB', u: 'A', v: 'B', w: 4}, {id: 'AD', u: 'A', v: 'D', w: 2},
+            {id: 'BC', u: 'B', v: 'C', w: 1}, {id: 'CF', u: 'C', v: 'F', w: 5},
+            {id: 'DE', u: 'D', v: 'E', w: 3}, {id: 'EF', u: 'E', v: 'F', w: 2},
+            {id: 'BE', u: 'B', v: 'E', w: 6}
+        ];
+        const componentColors = {
+            'A': '#FF6B6B', 'B': '#4AB99D', 'C': '#00FFFF', 'D': '#FFD700', 'E': '#FF8E53', 'F': '#C678DD'
+        };
+        let boruvkaStep = 0;
+        const svg = document.getElementById('boruvka-svg');
+        const statusText = document.getElementById('boruvka-status');
+        function initGraph() {
+            svg.innerHTML = '';
+            edges.forEach(e => {
+                const uNode = nodes.find(n => n.id === e.u);
+                const vNode = nodes.find(n => n.id === e.v);
+                
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("id", `edge-${e.id}`);
+                line.setAttribute("class", "viz-edge");
+                line.setAttribute("x1", uNode.x); line.setAttribute("y1", uNode.y);
+                line.setAttribute("x2", vNode.x); line.setAttribute("y2", vNode.y);
+                svg.appendChild(line);
+
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                const midX = (uNode.x + vNode.x) / 2; const midY = (uNode.y + vNode.y) / 2;
+                rect.setAttribute("x", midX - 19); rect.setAttribute("y", midY - 19);
+                rect.setAttribute("width", "38"); rect.setAttribute("height", "38");
+                rect.setAttribute("fill", "#121214"); rect.setAttribute("rx", "8");
+                svg.appendChild(rect);
+
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("class", "viz-weight");
+                text.setAttribute("x", midX); text.setAttribute("y", midY + 8);
+                text.setAttribute("font-size", "24px");
+                text.setAttribute("text-anchor", "middle");
+                text.textContent = e.w;
+                svg.appendChild(text);
+            });
+
+            // 节点圆半径（由原先的 38 放大至 48 像素绝对大小）
+            nodes.forEach(n => {
+                const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("id", `node-${n.id}`);
+                circle.setAttribute("class", "viz-node");
+                circle.setAttribute("cx", n.x); circle.setAttribute("cy", n.y);
+                circle.setAttribute("r", "48"); circle.setAttribute("fill", componentColors[n.id]);
+                circle.setAttribute("stroke", "white"); circle.setAttribute("stroke-width", "2.5");
+                group.appendChild(circle);
+
+                // 节点文本字号（由 22px 提升至 26px，垂直居中修正 y: n.y + 9）
+                const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                label.setAttribute("x", n.x); label.setAttribute("y", n.y + 9);
+                label.setAttribute("text-anchor", "middle"); label.setAttribute("fill", "#000");
+                label.setAttribute("font-weight", "900"); label.setAttribute("font-size", "26px");
+                label.textContent = n.id;
+                group.appendChild(label);
+                svg.appendChild(group);
+            });
+        }
+        function resetGraphClasses() {
+            edges.forEach(e => {
+                const line = document.getElementById('edge-' + e.id);
+                if (line) line.className.baseVal = "viz-edge";
+            });
+            nodes.forEach(n => {
+                const nodeCircle = document.getElementById('node-' + n.id);
+                if (nodeCircle) nodeCircle.setAttribute('fill', componentColors[n.id]);
+            });
+        }
+        function nextBoruvkaStep() {
+            boruvkaStep = (boruvkaStep % 5) + 1;
+            const btn = document.getElementById('boruvka-btn');
+            
+            if (boruvkaStep === 1) {
+                resetGraphClasses();
+                statusText.innerHTML = "初始化完毕 | 每个节点均为孤立连通块";
+                if (btn) btn.textContent = "执行下一阶段";
+            } 
+            else if (boruvkaStep === 2) {
+                resetGraphClasses();
+                document.getElementById('edge-AD').classList.add('active');
+                document.getElementById('edge-BC').classList.add('active');
+                document.getElementById('edge-EF').classList.add('active');
+                statusText.innerHTML = "边扫描中... | 分量出边: A➔D(2), B➔C(1), E➔F(2)";
+            } 
+            else if (boruvkaStep === 3) {
+                document.getElementById('node-D').setAttribute('fill', componentColors['A']);
+                document.getElementById('node-C').setAttribute('fill', componentColors['B']);
+                document.getElementById('node-F').setAttribute('fill', componentColors['E']);
+                statusText.innerHTML = "第一轮合并 | 连通块缩减至 3 个: {A,D}, {B,C}, {E,F}";
+            } 
+            else if (boruvkaStep === 4) {
+                document.getElementById('edge-DE').classList.add('active');
+                document.getElementById('edge-AB').classList.add('active');
+                statusText.innerHTML = "第二轮寻边... | 跨分量最优出边: D➔E(3), B➔A(4)";
+            } 
+            else if (boruvkaStep === 5) {
+                nodes.forEach(n => document.getElementById('node-' + n.id).setAttribute('fill', componentColors['B']));
+                statusText.innerHTML = "最终收敛 | 全图成功合并为单一分量，MST 构建成功！";
+                if (btn) btn.textContent = "重置";
+            }
+        }
+        initGraph();
+        
+        // --- Borůvka 复杂版 (9 节点 CLRS 图) 动态可视化脚本 ---
+        // 调整了复杂节点坐标，在更大的可视化视区内完美散开
+        const complexNodes = [
+            {id: 'A', x: 50, y: 250}, {id: 'B', x: 170, y: 100}, {id: 'H', x: 170, y: 400},
+            {id: 'C', x: 300, y: 100}, {id: 'I', x: 300, y: 250}, {id: 'G', x: 300, y: 400},
+            {id: 'D', x: 430, y: 100}, {id: 'F', x: 430, y: 400}, {id: 'E', x: 550, y: 250}
+        ];
+        const complexEdges = [
+            {id: 'AB', u: 'A', v: 'B', w: 4}, {id: 'AH', u: 'A', v: 'H', w: 8},
+            {id: 'BC', u: 'B', v: 'C', w: 8}, {id: 'BH', u: 'B', v: 'H', w: 11},
+            {id: 'CD', u: 'C', v: 'D', w: 7}, {id: 'CI', u: 'C', v: 'I', w: 2},
+            {id: 'CF', u: 'C', v: 'F', w: 4}, {id: 'DF', u: 'D', v: 'F', w: 14},
+            {id: 'DE', u: 'D', v: 'E', w: 9}, {id: 'EF', u: 'E', v: 'F', w: 10},
+            {id: 'FG', u: 'F', v: 'G', w: 2}, {id: 'GH', u: 'G', v: 'H', w: 1},
+            {id: 'GI', u: 'G', v: 'I', w: 6}, {id: 'HI', u: 'H', v: 'I', w: 7}
+        ];
+        const complexColors = {
+            'A': '#FF6B6B', 'B': '#4AB99D', 'C': '#00FFFF', 'D': '#FFD700', 'E': '#FF8E53', 'F': '#C678DD',
+            'G': '#98C379', 'H': '#E5C07B', 'I': '#F06292'
+        };
+        let complexStep = 0;
+        const complexSvg = document.getElementById('complex-boruvka-svg');
+        const complexStatusText = document.getElementById('complex-boruvka-status');
+        function initComplexGraph() {
+            complexSvg.innerHTML = '';
+            complexEdges.forEach(e => {
+                const uNode = complexNodes.find(n => n.id === e.u);
+                const vNode = complexNodes.find(n => n.id === e.v);
+                
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("id", 'cedge-' + e.id); line.setAttribute("class", "viz-edge");
+                line.setAttribute("x1", uNode.x); line.setAttribute("y1", uNode.y);
+                line.setAttribute("x2", vNode.x); line.setAttribute("y2", vNode.y);
+                complexSvg.appendChild(line);
+
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                const midX = (uNode.x + vNode.x) / 2; const midY = (uNode.y + vNode.y) / 2;
+                rect.setAttribute("x", midX - 15); rect.setAttribute("y", midY - 15);
+                rect.setAttribute("width", "30"); rect.setAttribute("height", "30");
+                rect.setAttribute("fill", "#121214"); rect.setAttribute("rx", "5");
+                complexSvg.appendChild(rect);
+
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("class", "viz-weight");
+                text.setAttribute("x", midX); text.setAttribute("y", midY + 7);
+                text.setAttribute("text-anchor", "middle"); text.setAttribute("font-size", "18px");
+                text.textContent = e.w;
+                complexSvg.appendChild(text);
+            });
+
+            complexNodes.forEach(n => {
+                const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("id", 'cnode-' + n.id); circle.setAttribute("class", "viz-node");
+                circle.setAttribute("cx", n.x); circle.setAttribute("cy", n.y);
+                circle.setAttribute("r", "34"); circle.setAttribute("fill", complexColors[n.id]);
+                circle.setAttribute("stroke", "white"); circle.setAttribute("stroke-width", "2.5");
+                group.appendChild(circle);
+
+                const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                label.setAttribute("x", n.x); label.setAttribute("y", n.y + 7);
+                label.setAttribute("text-anchor", "middle"); label.setAttribute("fill", "#000");
+                label.setAttribute("font-weight", "900"); label.setAttribute("font-size", "22px");
+                label.textContent = n.id;
+                group.appendChild(label);
+                complexSvg.appendChild(group);
+            });
+        }
+        function resetComplexGraphClasses() {
+            complexEdges.forEach(e => {
+                const line = document.getElementById('cedge-' + e.id);
+                if (line) line.className.baseVal = "viz-edge";
+            });
+            complexNodes.forEach(n => {
+                const nodeCircle = document.getElementById('cnode-' + n.id);
+                if (nodeCircle) nodeCircle.setAttribute('fill', complexColors[n.id]);
+            });
+        }
+        function nextComplexBoruvkaStep() {
+            complexStep = (complexStep % 5) + 1;
+            const btn = document.getElementById('complex-boruvka-btn');
+            
+            if (complexStep === 1) {
+                resetComplexGraphClasses();
+                complexStatusText.innerHTML = "[初始化] | 算法初始化，9个分量独立存在";
+                if (btn) btn.textContent = "执行下一阶段";
+            } 
+            else if (complexStep === 2) {
+                resetComplexGraphClasses();
+                ['AB', 'CI', 'CD', 'DE', 'FG', 'GH'].forEach(id => document.getElementById('cedge-'+id).classList.add('active'));
+                complexStatusText.innerHTML = "[1轮寻边] | 选中最优出边: AB(4), CI(2), CD(7), DE(9), FG(2), GH(1)";
+            } 
+            else if (complexStep === 3) {
+                document.getElementById('cnode-B').setAttribute('fill', complexColors['A']);
+                document.getElementById('cnode-D').setAttribute('fill', complexColors['C']);
+                document.getElementById('cnode-E').setAttribute('fill', complexColors['C']);
+                document.getElementById('cnode-I').setAttribute('fill', complexColors['C']);
+                document.getElementById('cnode-G').setAttribute('fill', complexColors['F']);
+                document.getElementById('cnode-H').setAttribute('fill', complexColors['F']);
+                complexStatusText.innerHTML = "[1轮合并] | 并查集联通，分量合并为 3 块: {A,B}, {C,I,D,E}, {F,G,H}";
+            } 
+            else if (complexStep === 4) {
+                ['AB', 'CI', 'CD', 'DE', 'FG', 'GH', 'BC', 'CF'].forEach(id => document.getElementById('cedge-'+id).classList.add('active'));
+                complexStatusText.innerHTML = "[2轮寻边] | 选中最优出边: BC(8), CF(4)";
+            } 
+            else if (complexStep === 5) {
+                complexNodes.forEach(n => document.getElementById('cnode-' + n.id).setAttribute('fill', complexColors['B']));
+                ['AB', 'CI', 'CD', 'DE', 'FG', 'GH', 'BC', 'CF'].forEach(id => document.getElementById('cedge-'+id).classList.add('active'));
+                complexStatusText.innerHTML = "[退出循环] | components = 1，生成无环全局最小生成树";
+                if (btn) btn.textContent = "重置";
+            }
+        }
+        initComplexGraph();
+
+        // --- Slide 13 Kruskal 重构树/带权图同屏联动演练脚本 ---
+        // 原始带权无向图节点（左半屏：X范围处于 40 到 280 之间，拓扑更开阔）
+        const graphNodes = [
+            {id: 'g1', label: '1', x: 60, y: 140, color: '#FF6B6B'},
+            {id: 'g2', label: '2', x: 180, y: 140, color: '#4AB99D'},
+            {id: 'g3', label: '3', x: 280, y: 240, color: '#00FFFF'},
+            {id: 'g4', label: '4', x: 60, y: 340, color: '#FFD700'},
+            {id: 'g5', label: '5', x: 180, y: 340, color: '#FF8E53'}
+        ];
+        // 原始带权无向图边集（包含4条树边 and 2条干扰非树边，边权从 2 到 8）
+        const graphEdges = [
+            {id: 'g-1-2', u: 'g1', v: 'g2', w: 2, isTree: true},
+            {id: 'g-4-5', u: 'g4', v: 'g5', w: 3, isTree: true},
+            {id: 'g-3-5', u: 'g3', v: 'g5', w: 5, isTree: true},
+            {id: 'g-2-3', u: 'g2', v: 'g3', w: 8, isTree: true},
+            // 干扰非树边
+            {id: 'g-1-4', u: 'g1', v: 'g4', w: 10, isTree: false},
+            {id: 'g-2-5', u: 'g2', v: 'g5', w: 12, isTree: false}
+        ];
+        // 重构树节点（右半屏：X范围处于 380 到 640 之间）
+        const rNodes = [
+            // 原始叶子节点 (1 ~ 5)
+            {id: 'r1', label: 'r1', labelText: '1', x: 400, y: 400, isLeaf: true, originalColor: '#FF6B6B'},
+            {id: 'r2', label: 'r2', labelText: '2', x: 460, y: 400, isLeaf: true, originalColor: '#4AB99D'},
+            {id: 'r3', label: 'r3', labelText: '3', x: 520, y: 400, isLeaf: true, originalColor: '#00FFFF'},
+            {id: 'r4', label: 'r4', labelText: '4', x: 580, y: 400, isLeaf: true, originalColor: '#FFD700'},
+            {id: 'r5', label: 'r5', labelText: '5', x: 640, y: 400, isLeaf: true, originalColor: '#FF8E53'},
+            // 虚拟重构边节点 (6 ~ 9) - 对应 LCA 点权 (代表原本最值边权)
+            {id: 'r6', label: 'r6', labelText: '6 (w:2)', x: 430, y: 310, isLeaf: false, cw: 2, originalColor: '#5c6370'},
+            {id: 'r7', label: 'r7', labelText: '7 (w:3)', x: 610, y: 310, isLeaf: false, cw: 3, originalColor: '#5c6370'},
+            {id: 'r8', label: 'r8', labelText: '8 (w:5)', x: 565, y: 220, isLeaf: false, cw: 5, originalColor: '#5c6370'},
+            {id: 'r9', label: 'r9', labelText: '9 (w:8)', x: 497, y: 110, isLeaf: false, cw: 8, originalColor: '#5c6370'}
+        ];
+        // 重构树二叉树树枝
+        const rEdges = [
+            {parent: 'r6', child: 'r1'}, {parent: 'r6', child: 'r2'},
+            {parent: 'r7', child: 'r4'}, {parent: 'r7', child: 'r5'},
+            {parent: 'r8', child: 'r3'}, {parent: 'r8', child: 'r7'},
+            {parent: 'r9', child: 'r6'}, {parent: 'r9', child: 'r8'}
+        ];
+        let rStep = 0;
+        const rSvg = document.getElementById('reconstruct-svg');
+        const rStatus = document.getElementById('reconstruct-status');
+        let rTimeouts = []; // 用于存放所有演示过程中的延时定时器句柄，确保防抖和零冲突
+        function clearRTimeouts() {
+            rTimeouts.forEach(t => clearTimeout(t));
+            rTimeouts = [];
+        }
+        function initReconstruct() {
+            clearRTimeouts();
+            if(!rSvg) return;
+            rSvg.innerHTML = '';
+            rStatus.innerHTML = "初始化就绪 | 左侧为原始带权图，右侧重构树初始化为空白叶子状态";
+            rStep = 0;
+            document.getElementById('reconstruct-btn').textContent = "开始演示";
+
+            // 一、绘制左侧原带权图
+            // 1. 绘制虚线分栏中介隔断线
+            const separator = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            separator.setAttribute("x1", "340"); separator.setAttribute("y1", "20");
+            separator.setAttribute("x2", "340"); separator.setAttribute("y2", "450");
+            separator.setAttribute("stroke", "rgba(255, 255, 255, 0.15)");
+            separator.setAttribute("stroke-width", "2.5");
+            separator.setAttribute("stroke-dasharray", "8,8");
+            rSvg.appendChild(separator);
+
+            // 2. 绘制原图边集与权值
+            graphEdges.forEach(e => {
+                const u = graphNodes.find(n => n.id === e.u);
+                const v = graphNodes.find(n => n.id === e.v);
+                
+                // 计算当前边的绝对几何长度，以便为后续擦入动画提供完美的 stroke-dasharray/offset 变量基础
+                const edgeLen = Math.hypot(u.x - v.x, u.y - v.y);
+
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("id", `g-edge-${e.id}`);
+                line.setAttribute("x1", u.x); line.setAttribute("y1", u.y);
+                line.setAttribute("x2", v.x); line.setAttribute("y2", v.y);
+                line.setAttribute("stroke", "rgba(255, 255, 255, 0.12)");
+                line.setAttribute("stroke-width", e.isTree ? "4.5" : "2.5");
+                if(!e.isTree) line.setAttribute("stroke-dasharray", "4,4");
+                line.setAttribute("style", `--wipe-len: ${edgeLen}; transition: stroke 0.6s, stroke-width 0.6s, filter 0.6s;`);
+                rSvg.appendChild(line);
+
+                // 权值遮罩底盒
+                const mx = (u.x + v.x) / 2, my = (u.y + v.y) / 2;
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("x", mx - 12); rect.setAttribute("y", my - 12);
+                rect.setAttribute("width", "24"); rect.setAttribute("height", "24");
+                rect.setAttribute("fill", "#121214"); rect.setAttribute("rx", "4");
+                rSvg.appendChild(rect);
+
+                // 边权数字
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", mx); text.setAttribute("y", my + 6);
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("fill", "#ffffff");
+                text.setAttribute("font-size", "14px");
+                text.setAttribute("font-family", "JetBrains Mono");
+                text.textContent = e.w;
+                rSvg.appendChild(text);
+            });
+
+            // 3. 绘制原图顶点节点
+            graphNodes.forEach(n => {
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("id", `g-node-circle-${n.id}`);
+                circle.setAttribute("cx", n.x); circle.setAttribute("cy", n.y);
+                circle.setAttribute("r", "24");
+                circle.setAttribute("fill", n.color);
+                circle.setAttribute("stroke", "white"); 
+                circle.setAttribute("stroke-width", "2");
+                rSvg.appendChild(circle);
+
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", n.x); text.setAttribute("y", n.y + 6);
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("fill", "#000");
+                text.setAttribute("font-weight", "900");
+                text.setAttribute("font-size", "16px");
+                text.textContent = n.label;
+                rSvg.appendChild(text);
+            });
+
+
+            // 二、绘制右侧重构树
+            // 1. 树连线预置（浅色不透明，等待合并点亮并触发擦入/渐现绘制动画）
+            rEdges.forEach(e => {
+                const p = rNodes.find(n => n.id === e.parent);
+                const c = rNodes.find(n => n.id === e.child);
+                
+                // 计算重构树树枝的物理绝对像素长度，以便精准应用 CSS wipe-len 变量
+                const branchLen = Math.hypot(p.x - c.x, p.y - c.y);
+
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("id", `re-edge-${e.parent}-${e.child}`);
+                line.setAttribute("x1", p.x); line.setAttribute("y1", p.y);
+                line.setAttribute("x2", c.x); line.setAttribute("y2", c.y);
+                line.setAttribute("stroke", "rgba(255, 255, 255, 0.06)");
+                line.setAttribute("stroke-width", "3.5");
+                line.setAttribute("style", `--wipe-len: ${branchLen};`);
+                rSvg.appendChild(line);
+            });
+
+            // 2. 树节点预置
+            // 2. 树节点预置（优化：为每个节点配置初始状态，以便后续平滑淡入）
+            rNodes.forEach(n => {
+                const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                group.setAttribute("id", `re-node-group-${n.id}`);
+                // 1~5号叶子节点初始完全可见，6~9号虚拟节点初始隐藏(不透明度极低)
+                group.setAttribute("opacity", n.isLeaf ? "1" : "0.05"); 
+
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute("id", `re-node-circle-${n.id}`);
+                circle.setAttribute("cx", n.x); circle.setAttribute("cy", n.y);
+                circle.setAttribute("r", n.isLeaf ? "22" : "28");
+                
+                // 初始化颜色：如果是1~5号原节点，直接涂上它原本的专属颜色，但是带白边
+                if (n.isLeaf) {
+                    circle.setAttribute("fill", n.originalColor);
+                    circle.setAttribute("stroke", "white");
+                } else {
+                    // 6~9号虚拟节点初始为静默暗灰色
+                    circle.setAttribute("fill", "rgba(255, 255, 255, 0.08)");
+                    circle.setAttribute("stroke", "rgba(255, 255, 255, 0.15)");
+                }
+                circle.setAttribute("stroke-width", "2");
+                group.appendChild(circle);
+
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", n.x); text.setAttribute("y", n.y + 6);
+                text.setAttribute("id", `re-node-text-${n.id}`);
+                text.setAttribute("text-anchor", "middle");
+                // 1~5号原节点文字初始用黑色，6~9号虚拟节点文字初始用暗白色
+                text.setAttribute("fill", n.isLeaf ? "#000000" : "rgba(255, 255, 255, 0.4)");
+                text.setAttribute("font-weight", "900");
+                text.setAttribute("font-size", n.isLeaf ? "15px" : "11px");
+                text.textContent = n.labelText;
+                group.appendChild(text);
+
+                rSvg.appendChild(group);
+            });
+        }
+        // 核心优化：高亮原图树边函数，支持擦入动画触发
+        function highlightGEdge(id, active = true, color = 'var(--cyber-cyan)', enableWipe = false) {
+            const edge = document.getElementById(`g-edge-${id}`);
+            if (edge) {
+                // 每次切换时先移除上一轮的动画类，以便重新触发
+                edge.classList.remove('draw-wipe');
+                edge.setAttribute("stroke", active ? color : "rgba(255, 255, 255, 0.12)");
+                if (active) {
+                    edge.setAttribute("stroke-width", "8");
+                    edge.setAttribute("filter", `drop-shadow(0 0 6px ${color})`);
+                    if (enableWipe) {
+                        // 强制触发重绘以执行 CSS Keyframe 路径自起点向终点擦入动画
+                        void edge.offsetWidth;
+                        edge.classList.add('draw-wipe');
+                    }
+                } else {
+                    edge.setAttribute("stroke-width", "4.5");
+                    edge.removeAttribute("filter");
+                }
+            }
+        }
+        // 核心优化：高亮重构树树枝连线函数，支持擦入/渐现动画触发
+        function highlightREdge(uId, vId, active = true, strokeColor = 'var(--accent)', animate = false) {
+            const id = `re-edge-${uId}-${vId}`;
+            const edge = document.getElementById(id);
+            if (!edge) return;
+            if (active) {
+                // 1. 获取右侧树连线两端的物理坐标并计算其实际像素长度
+                const x1 = parseFloat(edge.getAttribute('x1'));
+                const y1 = parseFloat(edge.getAttribute('y1'));
+                const x2 = parseFloat(edge.getAttribute('x2'));
+                const y2 = parseFloat(edge.getAttribute('y2'));
+                const length = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+
+                // 2. 将计算出的长度作为 CSS 变量传入，供画笔擦入动画读取
+                edge.style.setProperty('--wipe-len', length);
+
+                // 3. 移除类并强制触发重绘，以激活像左侧一样的 drawLineWipe 擦出动画
+                edge.classList.remove('re-edge-fade');
+                void edge.offsetWidth;
+                edge.classList.add('re-edge-fade');
+
+                edge.style.stroke = strokeColor;
+                edge.style.strokeWidth = "4.5";
+            } else {
+                edge.classList.remove('re-edge-fade');
+                edge.style.stroke = "rgba(255, 255, 255, 0.12)";
+                edge.style.strokeWidth = "2.5";
+            }
+        }
+        // 核心优化：高亮节点组，支持慢速渐变淡入（Fade-In）动画触发
+        function showRNode(id, activeColor = null, textColor = '#ffffff', enableWipe = false) {
+            const el = document.getElementById(`re-node-group-${id}`);
+            if(el) {
+                el.setAttribute("opacity", "1");
+                if (enableWipe) {
+                    el.classList.remove('re-node-fade');
+                    void el.offsetWidth;
+                    el.classList.add('re-node-fade');
+                }
+            }
+            if(activeColor) {
+                const circle = document.getElementById(`re-node-circle-${id}`);
+                if(circle) {
+                    circle.setAttribute("fill", activeColor);
+                    circle.setAttribute("stroke", activeColor === "var(--primary)" || activeColor === "var(--cyber-cyan)" ? "white" : "rgba(255,255,255)");
+                }
+                const text = document.getElementById(`re-node-text-${id}`);
+                if(text) {
+                    text.setAttribute("fill", textColor);
+                }
+            }
+        }
+        // 用于将树连线执行延迟淡入控制的核心封装函数，确保“点先完亮，线后再亮”
+        function showREdgeWithDelay(parent, child, color, delayMs) {
+            const tid = setTimeout(() => {
+                highlightREdge(parent, child, true, color, true);
+            }, delayMs);
+            rTimeouts.push(tid);
+        }
+        function highlightGEdgeWithDelay(id, color, delayMs) {
+            const tid = setTimeout(() => {
+                highlightGEdge(id, true, color, true);
+            }, delayMs);
+            rTimeouts.push(tid);
+        }
+        function nextReconstructStep() {
+            // 当处于最末尾的 LCA 演示状态（第 5 步）时点击，重置返回至第 0 步初始就绪清空状态
+            if (rStep === 5) {
+                initReconstruct();
+                return;
+            }
+
+            // 安全清空之前的延迟定时器，避免快速切换导致的混乱重叠
+            clearRTimeouts();
+
+            rStep = (rStep % 5) + 1;
+            const btn = document.getElementById('reconstruct-btn');
+
+            // 定义 1-5 号叶子节点的原本专属高饱和度颜色映射
+            const leafColors = {
+                'r1': '#FF6B6B', // 节点 1 (红)
+                'r2': '#4AB99D', // 节点 2 (橙)
+                'r3': '#00FFFF', // 节点 3 (青)
+                'r4': '#FFD700', // 节点 4 (紫)
+                'r5': '#FF8E53'  // 节点 5 (绿)
+            };
+
+            if (rStep === 1) {
+                initReconstruct();
+                rStep = 1;
+                
+                // 1. 节点 6, 1, 2 优先触发淡入显现
+                showRNode('r6', 'var(--cyber-cyan)', '#000000', true);
+                // 修改：保留 1, 2 号节点的原本特殊颜色
+                showRNode('r1', leafColors['r1'], '#000000', true);
+                showRNode('r2', leafColors['r2'], '#000000', true);
+                
+                // 2. 对应连线同步擦入亮起 (1200ms 延时触发)
+                highlightGEdgeWithDelay('g-1-2', 'var(--cyber-cyan)', 1200);
+                showREdgeWithDelay('r6', 'r1', 'var(--cyber-cyan)', 1200);
+                showREdgeWithDelay('r6', 'r2', 'var(--cyber-cyan)', 1200);
+
+                rStatus.innerHTML = "[第一阶段] | 按边权从小到大，优先选择权值为 2 的最小边 (1, 2)，建立新父节点 6 并将原节点 1 和 2 连接为其子节点";
+                btn.textContent = "执行下一步";
+            }
+            else if (rStep === 2) {
+                // 2. 上一轮连通块沉淀归档，本轮新边和合并元素触发时序联动
+                highlightGEdge('g-1-2', true, 'var(--primary)', false);
+                highlightREdge('r6', 'r1', true, 'var(--primary)', false);
+                highlightREdge('r6', 'r2', true, 'var(--primary)', false);
+                showRNode('r6', 'var(--primary)', '#000000', false);
+                
+                // 保持原节点本身的色彩
+                showRNode('r1', leafColors['r1'], '#000000', false);
+                showRNode('r2', leafColors['r2'], '#000000', false);
+
+                // 本轮新加入的节点 7, 4, 5 优先淡入
+                showRNode('r7', 'var(--cyber-cyan)', '#000000', true);
+                showRNode('r4', leafColors['r4'], '#000000', true);
+                showRNode('r5', leafColors['r5'], '#000000', true);
+
+                // 节点完全显现后，连线才亮起 (1200ms 延时)
+                highlightGEdgeWithDelay('g-4-5', 'var(--cyber-cyan)', 1200);
+                showREdgeWithDelay('r7', 'r4', 'var(--cyber-cyan)', 1200);
+                showREdgeWithDelay('r7', 'r5', 'var(--cyber-cyan)', 1200);
+
+                rStatus.innerHTML = "[第二阶段] | 处理权值为 3 的边 (4, 5)，建立新父节点 7 并将原节点 4 和 5 归并连接为其子节点";
+            }
+            else if (rStep === 3) {
+                // 3. 级联合并 3 与 7，历史边 4-5、7 沉淀变绿
+                highlightGEdge('g-4-5', true, 'var(--primary)', false);
+                highlightREdge('r7', 'r4', true, 'var(--primary)', false);
+                highlightREdge('r7', 'r5', true, 'var(--primary)', false);
+                showRNode('r7', 'var(--primary)', '#000000', false);
+
+                // 本轮新创父点 8 和叶点 3 优先淡入渐现
+                showRNode('r8', 'var(--cyber-cyan)', '#000000', true);
+                showRNode('r3', leafColors['r3'], '#000000', true);
+                
+                // 历史归并连通分量的原节点保持专属色彩
+                ['r4', 'r5'].forEach(id => {
+                    const c = document.getElementById(`re-node-circle-${id}`);
+                    if(c) c.setAttribute("fill", leafColors[id]);
+                });
+
+                // 完全淡入后，连线才亮起
+                highlightGEdgeWithDelay('g-3-5', 'var(--cyber-cyan)', 1200);
+                showREdgeWithDelay('r8', 'r3', 'var(--cyber-cyan)', 1200);
+                showREdgeWithDelay('r8', 'r7', 'var(--cyber-cyan)', 1200);
+                
+                rStatus.innerHTML = "[第三阶段] | 处理权值为 5 的边 (3, 5)，由于 5 已在节点 7 的集合中，故建立新父节点 8 将孤立点 3 与代表分量的节点 7 相连";
+            }
+            else if (rStep === 4) {
+                // 4. 合并分量 6 和分量 8。最后一根顶层根节点的连线连上
+                highlightGEdge('g-1-2', true, 'var(--primary)', false);
+                highlightGEdge('g-4-5', true, 'var(--primary)', false);
+                highlightGEdge('g-3-5', true, 'var(--primary)', false);
+                
+                rEdges.forEach(e => {
+                    if (e.parent !== 'r9') {
+                        highlightREdge(e.parent, e.child, true, 'var(--primary)', false);
+                    }
+                });
+                
+                // 历史所有分支非叶子节点变为沉淀学术绿，而原点 (1-5) 仍然保持原有的独特鲜艳色
+                rNodes.forEach(n => {
+                    if (n.id !== 'r9') {
+                        if (leafColors[n.id]) {
+                            showRNode(n.id, leafColors[n.id], '#000000', false);
+                        } else {
+                            showRNode(n.id, 'var(--primary)', '#000000', false);
+                        }
+                    }
+                });
+
+                // 新选中的顶层终极代表根 9，以及被本阶段选中的核心分量子节点根 6、8 亮起赛博青
+                showRNode('r9', 'var(--cyber-cyan)', '#000000', true);
+                showRNode('r6', 'var(--cyber-cyan)', '#000000', false);
+                showRNode('r8', 'var(--cyber-cyan)', '#000000', false);
+
+                // 节点完全淡入后，终极生成树根的父子线条才擦出 (1200ms 延时)
+                highlightGEdgeWithDelay('g-2-3', 'var(--cyber-cyan)', 1200);
+                showREdgeWithDelay('r9', 'r6', 'var(--cyber-cyan)', 1200);
+                showREdgeWithDelay('r9', 'r8', 'var(--cyber-cyan)', 1200);
+                
+                rStatus.innerHTML = "[第四阶段] | 处理权值为 8 的最后一条树边 (2, 3)，建立根节点 9，成功将左侧代表分量的节点 6 与右侧代表分量的节点 8 相连，构成重构树";
+                btn.textContent = "测试路径 LCA"; // 按钮变更为进入 LCA 测试提示
+            }
+            else if (rStep === 5) {
+                // 5. LCA 最值路径测试 (前置条件：此时树已完整生成，接下来在这一次点击中单独跑 LCA 演示动画)
+                
+                // 重置所有右侧节点状态 
+                rNodes.forEach(n => {
+                    const c = document.getElementById(`re-node-circle-${n.id}`);
+                    const t = document.getElementById(`re-node-text-${n.id}`);
+                    if(c && t) {
+                        // 【修改核心】：只有被选中的路径端点 r1 和 r3 保持专属亮色，2、4、5 及其他虚拟节点全部暗下来
+                        if (n.id === 'r1' || n.id === 'r3') {
+                            c.setAttribute("stroke", "var(--accent)"); // 加上 LCA 黄金高亮边框
+                            c.setAttribute("stroke-width", "4");
+                            c.setAttribute("fill", leafColors[n.id]); // 保持原色
+                            t.setAttribute("fill", "#000000");        // 黑字更清晰
+                        } else {
+                            // 2, 4, 5 号原节点以及 6, 7, 8 号虚拟节点全部变为学术暗色静默状态
+                            c.setAttribute("stroke", "rgba(255,255,255,0.2)");
+                            c.setAttribute("stroke-width", "1.5");
+                            c.setAttribute("fill", "#2A2A30");        // 暗灰色背景
+                            t.setAttribute("fill", "rgba(255,255,255,0.4)"); // 变暗的白字
+                        }
+                    }
+                });
+                // 【核心修改 1】：初始化重置右侧所有线条为静默暗色底线，并移除残留的动画类，为一会儿的擦出动画做蓄力准备
+                rEdges.forEach(e => {
+                    const edge = document.getElementById(`re-edge-${e.parent}-${e.child}`);
+                    if (edge) {
+                        edge.classList.remove('re-edge-fade'); // 卸载动画类
+                        edge.style.stroke = "rgba(255, 255, 255, 0.12)";
+                        edge.style.strokeWidth = "2.5";
+                        // 彻底清除 dash 状态让它变回普通静态底线
+                        edge.style.removeProperty('stroke-dasharray');
+                        edge.style.removeProperty('stroke-dashoffset');
+                    }
+                });
+                // // 线条初始化为暗色底线
+                // rEdges.forEach(e => highlightREdge(e.parent, e.child, true, 'rgba(255,255,255,0.12)', false));
+
+                // 触发原图端点 1 与 3 变色
+                document.getElementById('g-node-circle-g1').setAttribute("fill", "#FF6B6B"); // 端点 1 (红)
+                document.getElementById('g-node-circle-g3').setAttribute("fill", "#00FFFF"); // 端点 3 (青)
+                
+                // 【注意】：由于上方循环中已经给 re-node-circle-r1 和 r3 加了边框，这里不需要重复添加了
+
+                // LCA 根节点 9 以璀璨黄金色缓慢淡入
+                // LCA 终极根节点 9 转换为璀璨黄金色高亮平滑淡入
+                showRNode('r9', 'var(--accent)', '#000000', false); 
+                const r9Circle = document.getElementById('re-node-circle-r9');
+                const r9Text = document.getElementById('re-node-text-r9');
+                if(r9Circle) r9Circle.style.opacity = "1";
+                if(r9Text) r9Text.style.opacity = "1";
+                // 2. 节点完全亮起后，LCA 对应物理连通简单路径才黄金擦绘绘出 (1200ms 延时)
+                const tid1 = setTimeout(() => {
+                    highlightGEdge('g-1-2', true, 'rgba(255,255,255,0.4)', true); // 左侧原图非瓶颈边浅色擦绘
+                    highlightGEdge('g-2-3', true, 'var(--accent)', true);         // 左侧原图核心瓶颈边黄金擦绘
+                    
+                    // 【核心修改 2】：调用 highlightREdge 时，最后一个参数传入 true 激活动画重新擦出
+                    // 黄金画笔拉伸，由上至下、自根节点向两端端点平滑地像藤蔓一样渐入擦出
+                    highlightREdge('r9', 'r6', true, 'var(--accent)', true);
+                    highlightREdge('r9', 'r8', true, 'var(--accent)', true);
+                    highlightREdge('r6', 'r1', true, 'var(--accent)', true);
+                    highlightREdge('r8', 'r3', true, 'var(--accent)', true);
+                }, 1200);
+                rTimeouts.push(tid1);
+
+                rStatus.innerHTML = "[LCA最值映射] | 查询原图 1 到 3 的简单路径，其瓶颈边权等价于重构树上它们最近公共祖先（节点 9）的点权（w:8）";
+                btn.textContent = "重新演示";
+            
+            }
+        }
+        // 初始化
+        //init6();
+        //init7();
+        initReconstruct();
+    </script>
+</body>
+</html>
