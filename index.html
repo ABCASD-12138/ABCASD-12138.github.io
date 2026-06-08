@@ -1,0 +1,2441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文学研究助手 - 实验报告 (第10组)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+SC:wght@300;400;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4AB99D;      /* 薄荷绿 */
+            --cyber-cyan: #00FFFF;   /* 赛博青 */
+            --accent: #FFD700;      /* 强调金 */
+            --danger: #FF6B6B;      /* 危险红 */
+            --bg-dark: #1A1A1A;
+            --bg-black: #0F0F0F;
+            --text-main: #FFFFFF;
+            --text-dim: #CCCCCC;
+            --bfs-primary: #4AB99D;
+            --bfs-cyber-cyan: #00FFFF;
+            --bfs-accent: #FFD700;
+            --bfs-text-dim: #CCCCCC;
+            --bfs-node-id: #4AB99D;
+            --bfs-node-size: 60px;
+            --bfs-desc-font-size: 18px;
+            --match-node-size: 60px;
+            --transition-speed: 1s;}
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background-color: var(--bg-black); 
+            font-family: 'Noto Sans SC', sans-serif; 
+            color: var(--text-main); 
+            height: 100vh; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; }
+        .presentation-wrapper { 
+            width: 1280px; 
+            height: 720px; 
+            position: relative; 
+            perspective: 2000px; }
+        .slide-container { 
+            background-color: var(--bg-dark); 
+            width: 100%; 
+            height: 100%; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            display: flex; 
+            flex-direction: column; 
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8); 
+            border-radius: 12px; 
+            opacity: 0; 
+            visibility: hidden; 
+            z-index: 1; 
+            border: 1px solid rgba(255,255,255,0.05); 
+            overflow: hidden;
+            transition: transform var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1), opacity var(--transition-speed);}
+        .slide-container.active { 
+            opacity: 1; 
+            visibility: visible; 
+            z-index: 2; 
+            transform: translateX(0);}
+        .slide-container.prev-exit { transform: translateX(-100%); opacity: 0; }
+        .slide-container.next-enter { transform: translateX(100%); }
+        .slide-container::after { 
+            content: ''; 
+            position: absolute; 
+            bottom: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 8px; 
+            background: linear-gradient(90deg, var(--primary), var(--cyber-cyan)); 
+            z-index: 10; }
+        .progress-bar { 
+            position: absolute; 
+            bottom: 30px; 
+            left: 80px; 
+            z-index: 101; 
+            font-family: 'JetBrains Mono'; 
+            color: var(--primary); 
+            font-size: 20px; 
+            background: rgba(0,0,0,0.4); 
+            padding: 8px 24px; 
+            border-radius: 24px; 
+            border: 1px solid rgba(74, 185, 157, 0.2); }
+        .slide-title { 
+            font-size: 58px; 
+            padding: 45px 80px 10px 80px; 
+            color: var(--text-main); 
+            font-weight: 700; }
+        .slide-title span { 
+            font-size: 22px; 
+            color: var(--primary); 
+            margin-left: 20px; 
+            font-family: 'JetBrains Mono'; 
+            font-weight: 300; }
+        .content-area { 
+            flex-grow: 1; 
+            padding: 0 80px 60px 80px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            position: relative; }
+        .highlight-cyan { color: var(--cyber-cyan); font-weight: 700; }
+        .highlight-accent { color: var(--accent); font-weight: 700; }
+        .highlight-primary { color: var(--primary); font-weight: 700; }
+        .nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.05);
+            color: white;
+            border: none;
+            padding: 30px 20px;
+            cursor: pointer;
+            z-index: 1000;
+            transition: 0.3s;
+            border-radius: 8px;}
+        .nav-btn:hover { background: var(--primary); color: var(--bg-black); }
+        .nav-btn.prev { left: 15px; }
+        .nav-btn.next { right: 15px; }
+        .animate-item { opacity: 0; transform: translateY(20px); transition: 0.6s ease-out; }
+        .active .animate-item { opacity: 1; transform: translateY(0); }
+        .active .delay-1 { transition-delay: 0.2s; }
+        .active .delay-2 { transition-delay: 0.4s; }
+
+        /* KMP 可视化样式 */
+        .kmp-viz-container {
+            position: relative;
+            background: rgba(0,0,0,0.5);
+            border-radius: 12px;
+            padding: 40px;
+            margin-top: 10px;
+            border: 1px solid rgba(74, 185, 157, 0.3);
+            height: 330px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* 确保内容水平居中 */}
+        .text-row, .pattern-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 25px;
+            font-family: 'JetBrains Mono';}
+        .cell {
+            width: 50px;
+            height: 50px;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            border-radius: 4px;
+            transition: 0.5s;}
+        .cell.highlight { background: var(--primary); color: var(--bg-black); border-color: var(--primary); font-weight: 700; }
+        .cell.mismatch { background: var(--danger); border-color: var(--danger); animation: shake 0.6s; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }}
+        .pattern-wrapper {
+            position: absolute;
+            transition: transform 1.2s cubic-bezier(0.68, -0.25, 0.27, 1.25);
+            left: 40px; /* 基础偏移量，需与 text-row 对齐 */}
+        .pointer {
+            position: absolute;
+            top: 5px; /* 调整后的位置 */
+            color: var(--accent);
+            font-size: 28px;
+            transition: left 0.8s;
+            left: 50px; }
+        /* 状态文字居中优化 */
+        #viz-status {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--primary);
+            font-size: 20px;
+            font-weight: 900;
+            background: rgba(0,0,0,0.6);
+            border-top: 1px solid rgba(74, 185, 157, 0.2);
+            padding: 0 20px;
+            box-sizing: border-box;}
+        /* 代码展示窗口：支持滚动 */
+        .code-window {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 12px;
+            overflow: auto; 
+            padding: 25px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            line-height: 1.5;
+            color: #abb2bf;
+            max-height: 440px;
+            width: 100%;
+            position: relative;}
+        .code-window pre { white-space: pre; margin: 0; }
+        .kw { color: #c678dd; } 
+        .fn { color: #61afef; } 
+        .cm { color: #5c6370; font-style: italic; } 
+        .str { color: #98c379; } 
+        .num { color: #d19a66; }
+        .desc-text {
+            font-size: 26px;
+            line-height: 1.6;
+            color: var(--text-dim);
+            text-align: justify;}
+        .desc-text p {
+            margin-bottom: 20px;}
+        .desc-text strong {
+            color: var(--primary);}
+        .text-row, .pattern-row { display: flex; gap: 8px; margin-bottom: 25px; font-family: 'JetBrains Mono'; }
+        .cell { width: 50px; height: 50px; border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 22px; border-radius: 4px; transition: 0.5s; }
+        .cell.highlight { background: var(--primary); color: var(--bg-black); border-color: var(--primary); font-weight: 700; }
+        .cell.mismatch { background: var(--danger); border-color: var(--danger); animation: shake 0.6s; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .pattern-wrapper { position: absolute; transition: transform 1.2s cubic-bezier(0.68, -0.25, 0.27, 1.25); left: 40px; }
+        .pointer { position: absolute; top: 5px; color: var(--accent); font-size: 28px; transition: left 0.8s; left: 50px; }
+        #viz-status { position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--primary); font-size: 20px; font-weight: 900; background: rgba(0,0,0,0.6); border-top: 1px solid rgba(74, 185, 157, 0.2); padding: 0 20px; }
+        .summary-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 25px; height: 100%; }
+        .summary-card h3 { color: var(--primary); font-size: 32px; margin-bottom: 20px; border-bottom: 2px solid rgba(74,185,157,0.3); padding-bottom: 10px; }
+        .summary-list { list-style: none; }
+        .summary-list li { margin-bottom: 15px; font-size: 22px; line-height: 1.5; position: relative; padding-left: 35px; }
+        .summary-list li::before { content: '\f058'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; left: 0; color: var(--primary); }
+    
+        /* Slide 11: Trie Viz Styles */
+        /* 调整字号防止溢出 */
+        .desc-text { font-size: 24px; line-height: 1.5; color: var(--text-dim); text-align: justify; overflow-y: auto; max-height: 520px; }
+        .desc-text p { margin-bottom: 20px; }
+
+        /* Trie 可视化样式调整 */
+        .trie-canvas { width: 100%; height: 420px; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); position: relative; overflow: hidden; }
+        .node { position: absolute; width: 64px; height: 64px; background: #222; border: 2px solid var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono'; font-weight: 700; color: #fff; z-index: 5; transition: 0.3s; font-size: 22px; box-shadow: 0 0 10px rgba(74, 185, 157, 0.2); }
+        .node.is-end { border-color: var(--accent); box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
+        .node.active { background: var(--cyber-cyan); color: #000; transform: scale(1.1); box-shadow: 0 0 20px var(--cyber-cyan); border-color: #fff; }
+        .edge { position: absolute; height: 2px; background: rgba(255,255,255,0.1); transform-origin: top left; z-index: 1; }
+        .token-tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7); padding: 6px 15px; border-radius: 6px; border: 1px solid var(--primary); font-family: 'JetBrains Mono'; color: var(--primary); font-size: 14px; z-index: 10; }
+        #viz-status { height: 50px; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-main); font-size: 18px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; background: rgba(0,0,0,0.2); }
+
+        /* Slide 13：左右分栏布局核心 */
+        .grid-2col { 
+            display: grid; 
+            grid-template-columns: 0.4fr 0.6fr; 
+            gap: 40px; 
+            align-items: start; 
+            width: 100%;}
+        
+        .nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.05);
+            color: white;
+            border: none;
+            padding: 30px 20px;
+            cursor: pointer;
+            z-index: 1000;
+            transition: 0.3s;
+            border-radius: 8px;}
+        .nav-btn:hover { background: var(--primary); color: var(--bg-black); }
+        .nav-btn.prev { left: 15px; }
+        .nav-btn.next { right: 15px; }
+        
+        /*Slide 15：AC自动机可视化*/
+        .animate-item { opacity: 0; transform: translateY(20px); transition: 0.6s ease-out; }
+        .active .animate-item { opacity: 1; transform: translateY(0); }
+        .active .delay-1 { transition-delay: 0.2s; }
+        .ac-grid {
+            display: grid;
+            grid-template-columns: 0.35fr 0.65fr;
+            gap: 40px;
+            height: 100%;
+            align-items: center;}
+        .ac-text-info {
+            font-size: 20px;
+            line-height: 1.6;
+            color: var(--text-dim);
+            text-align: justify;}
+        .ac-text-info strong { color: var(--primary); }
+        .ac-viz-panel {
+            background: rgba(0,0,0,0.4);
+            border-radius: 16px;
+            height: 520px;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;}
+        .ac-canvas {
+            flex: 1;
+            position: relative;}
+        .ac-node {
+            position: absolute;
+            width: 46px;
+            height: 46px;
+            background: #222;
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono';
+            font-weight: 700;
+            color: #fff;
+            z-index: 10;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            font-size: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            opacity: 0.15;}
+        .ac-node.revealed { opacity: 1; }
+        .ac-node.active-ptr { 
+            background: var(--primary); 
+            color: #000; 
+            transform: scale(1.15); 
+            box-shadow: 0 0 20px var(--primary); 
+            border-color: #fff;}
+        .ac-node.match-hit { 
+            background: var(--accent); 
+            color: #000; 
+            border-color: #fff; 
+            animation: pulse-gold 1s infinite alternate; }
+        @keyframes pulse-gold {
+            from { box-shadow: 0 0 10px var(--accent); }
+            to { box-shadow: 0 0 30px var(--accent); }}
+        .ac-edge {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.408);
+            height: 2px;
+            transform-origin: left center;
+            z-index: 5;
+            transition: opacity 0.5s;
+            opacity: 0;}
+        .ac-edge.revealed { opacity: 1; }
+        .fail-link {
+            position: absolute;
+            pointer-events: none;
+            stroke-dasharray: 5, 5;
+            fill: none;
+            opacity: 0;
+            transition: opacity 0.8s;}
+        .fail-link.revealed { opacity: 0.7; }
+        .match-bar {
+            height: 70px;
+            background: rgba(0,0,0,0.6);
+            border-bottom: 1px solid rgba(74, 185, 157, 0.2);
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            gap: 8px;
+            font-family: 'JetBrains Mono';
+            font-size: 26px;}
+        .char-box {
+            padding: 4px 10px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.05);
+            transition: 0.3s;}
+        .char-box.current {
+            background: var(--cyber-cyan);
+            color: #000;
+            font-weight: 800;
+            box-shadow: 0 0 15px var(--cyber-cyan);}
+        .viz-footer {
+            height: 60px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            border-top: 1px solid rgba(255,255,255,0.05);}
+        .status-msg {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 18px;}
+        .control-group { display: flex; gap: 10px; }
+        .btn-action {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 6px 15px;
+            border-radius: 4px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;}
+        .btn-action:disabled { background: #444; color: #888; cursor: not-allowed; }
+        .btn-action:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
+        .btn-action.highlight { 
+            background: var(--accent); 
+            box-shadow: 0 0 15px var(--accent);}
+        .btn-reset { background: var(--danger); color: white; }
+
+        /* BFS 演示页专用样式 */
+        .bfs-slide-title { font-size: 40px; padding: 20px 60px 5px 60px; font-weight: 700; flex-shrink: 0; }
+        .bfs-slide-title span { font-size: 18px; color: var(--primary); margin-left: 20px; font-family: 'JetBrains Mono'; }
+        .bfs-main-layout { display: flex; gap: 25px; flex-grow: 1; height: 100%; padding-top: 10px; }
+        .bfs-logic-panel { flex: 0 0 440px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .bfs-info-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 18px; }
+        .bfs-info-card h4 { color: var(--primary); font-size: 22px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+        .bfs-info-card p, .bfs-info-card li { color: var(--text-dim); font-size: 18px; line-height: 1.5; margin-bottom: 2px; list-style: none; }
+        .bfs-pattern-tag { display: inline-block; background: #333; padding: 2px 10px; border-radius: 6px; color: var(--accent); font-family: 'JetBrains Mono'; margin-right: 6px; font-size: 16px; border: 1px solid rgba(255,215,0,0.3); }
+        .bfs-code-inline { font-family: 'JetBrains Mono'; color: var(--cyber-cyan); background: rgba(0,0,0,0.3); padding: 0 4px; border-radius: 4px; }
+        .bfs-viz-panel { flex: 1; background: #080808; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; position: relative; overflow: hidden; }
+        .bfs-canvas-container { flex: 1; position: relative; overflow: hidden; }
+        .bfs-ac-node { position: absolute; width: var(--bfs-node-size); height: var(--bfs-node-size); background: #111; border: 3px solid var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono'; font-weight: 700; font-size: 24px; color: #fff; z-index: 10; transition: all 0.3s ease; }
+        .bfs-ac-node.root { border-style: double; border-width: 6px; }
+        .bfs-ac-node.active { background: var(--primary); color: #000; box-shadow: 0 0 30px var(--primary); }
+        .bfs-ac-node.fail-point { border-color: var(--cyber-cyan); box-shadow: 0 0 20px var(--cyber-cyan); }
+        .bfs-node-index { position: absolute; bottom: -18px; right: -8px; font-size: 12px; color: var(--primary); font-family: 'JetBrains Mono'; background: rgba(0,0,0,0.8); padding: 1px 4px; border-radius: 3px; }
+        .bfs-ac-edge { position: absolute; background: rgba(255, 255, 255, 0.1); height: 2px; transform-origin: left center; z-index: 5; }
+        .bfs-edge-label { position: absolute; color: var(--accent); font-family: 'JetBrains Mono'; font-size: 18px; font-weight: 700; z-index: 11; background: #080808; padding: 0 4px; }
+        .bfs-viz-controls { padding: 15px 25px; background: rgba(255,255,255,0.03); border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 15px; align-items: center; }
+        .bfs-step-desc { flex: 1; font-size: 18px; color: var(--cyber-cyan); min-height: 50px; display: flex; align-items: center; line-height: 1.4; }
+        .bfs-btn-next { background: var(--primary); color: #000; border: none; padding: 12px 30px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 18px; transition: all 0.2s; }
+        #bfs-queue-box { padding: 8px 15px; background: #222; border-radius: 6px; font-family:'JetBrains Mono'; font-size:16px; color: var(--accent); min-width: 120px; text-align: center; }
+        .bfs-fail-path { stroke: var(--cyber-cyan); stroke-width: 2.5; fill: none; stroke-dasharray: 5,5; opacity: 0.7; }
+
+        /* Slide 20 特定样式 (来自 test_2) */
+        .match-logic-panel { flex: 0 0 460px; display: flex; flex-direction: column; gap: 15px; }
+        .match-info-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 20px; }  
+        .match-info-card h4 { 
+            color: var(--primary); 
+            font-size: 20px; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            margin-bottom: 8px;}
+        .pattern-header-inline { display: flex; align-items: center; gap: 12px; }
+        .pattern-header-inline h4 { margin-bottom: 0; } 
+        .pattern-tags-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .match-info-card p { color: var(--text-dim); font-size: 18.6px; line-height: 1.6; margin-bottom: 6px; }
+        .match-info-card p code { font-family: 'JetBrains Mono'; color: var(--cyber-cyan); background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px; }
+        .match-pattern-tag { display: inline-block; background: #333; padding: 4px 10px; border-radius: 5px; color: var(--accent); font-family: 'JetBrains Mono'; font-size: 18px; border: 1px solid rgba(255,215,0,0.2); }
+        /* 命中列表分栏样式：高度固定 3 行，溢出自动分列 */
+        #found-list { 
+            display: flex; 
+            flex-direction: column; 
+            flex-wrap: wrap; 
+            height: 100px; /* 约等于 3 行文字的高度 */
+            column-gap: 3px;
+            color: var(--text-main); 
+            font-family: 'JetBrains Mono'; 
+            font-size: 16px; 
+            line-height: 2.1;}
+        .found-item { width: 140px; white-space: nowrap; }
+
+        .flow-match-title { font-size: 33px; padding: 25px 60px 15px 60px; font-weight: 700; flex-shrink: 0; }
+        .flow-match-title span { font-size: 20px; color: var(--primary); margin-left: 20px; font-family: 'JetBrains Mono'; opacity: 0.8; }
+        .flow-content-area { flex-grow: 1; padding: 0 40px 30px 50px; display: flex; flex-direction: column; height: calc(100% - 100px); }
+        .flow-main-layout { display: flex; gap: 30px; flex-grow: 1; height: 100%; overflow: hidden; }
+        .flow-logic-panel { flex: 0 0 460px; display: flex; flex-direction: column; gap: 12px; }
+        .flow-viz-panel { flex: 1; background: #080808; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; position: relative; overflow: hidden; margin-top: -10px; }
+        .flow-scan-strip { height: 60px; background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; flex-shrink: 0; }
+        .flow-scan-char { width: 36px; height: 36px; border: 2px solid #333; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-family: 'JetBrains Mono'; color: #555; transition: all 0.3s; }
+        .flow-scan-char.active { border-color: var(--accent); color: var(--accent); transform: scale(1.1); box-shadow: 0 0 15px rgba(255,215,0,0.3); }
+        .flow-scan-char.passed { color: var(--primary); border-color: var(--primary); opacity: 0.5; }
+        .flow-canvas-container { flex: 1; position: relative; background: radial-gradient(circle at center, #111 0%, #080808 100%); overflow: hidden; }
+        .flow-node { position: absolute; width: var(--match-node-size); height: var(--match-node-size); background: #111; border: 2px solid #555; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono'; font-weight: 700; font-size: 22px; color: #fff; z-index: 50; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .flow-node.root { border-style: double; border-width: 4px; border-color: var(--primary); }
+        .flow-node.active { border-color: var(--accent); box-shadow: 0 0 20px var(--accent); z-index: 60; }
+        .flow-node.found { background: var(--danger); border-color: #fff; box-shadow: 0 0 25px var(--danger); animation: flowNodePulse 0.5s infinite alternate; z-index: 61; }
+        @keyframes flowNodePulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+        .flow-node-id-label { position: absolute; bottom: -18px; right: -2px; font-size: 14px; color: var(--primary); padding: 1px 4px; border-radius: 3px; }
+        .flow-edge { position: absolute; background: rgba(255,255,255,0.1); height: 2px; transform-origin: left center; z-index: 10; }
+        .flow-edge-label { position: absolute; color: #888; font-family: 'JetBrains Mono'; font-size: 16px; font-weight: 700; z-index: 55; background: #080808; padding: 0 4px; border-radius: 4px; }
+        .flow-fail-path { stroke: var(--cyber-cyan); stroke-width: 2; fill: none; stroke-dasharray: 5,3; opacity: 0.3; pointer-events: none; transition: all 0.5s; }
+        .flow-fail-path.activated { stroke: var(--accent); stroke-width: 4; stroke-dasharray: none; opacity: 1; filter: drop-shadow(0 0 8px var(--accent)); }
+        .flow-viz-controls { padding: 15px 25px; background: rgba(255,255,255,0.03); border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 20px; align-items: center; min-height: 95px; }
+        .flow-step-desc { flex: 1; font-size: 17px; color: var(--text-dim); line-height: 1.5; text-align: left; word-break: normal; overflow-wrap: anywhere; }
+        .flow-step-desc b { color: var(--cyber-cyan); }
+        .flow-highlight-text { color: var(--accent); font-weight: bold; }
+        .flow-btn-next { background: var(--primary); color: #000; border: none; padding: 12px 28px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 14px; transition: 0.2s; white-space: nowrap; }
+        .flow-btn-next:hover { background: var(--cyber-cyan); transform: translateY(-1px); }
+        .animate-item { opacity: 0; transform: translateY(20px); transition: 0.6s ease-out; }
+        .active .animate-item { opacity: 1; transform: translateY(0); }
+        .active .delay-1 { transition-delay: 0.2s; }
+        .active .delay-2 { transition-delay: 0.4s; }        
+    </style>
+</head>
+<body>
+
+    <button class="nav-btn prev" onclick="changeSlide(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+    <button class="nav-btn next" onclick="changeSlide(1)"><i class="fa-solid fa-chevron-right"></i></button>
+
+    <div class="presentation-wrapper">
+        
+        <!-- Slide 1: 标题页 (更换背景版) -->
+        <div class="slide-container active" id="slide-1" style="position: relative; overflow: hidden; background-color: var(--bg-black);">
+            <!-- 背景层：极简深蓝色/冷绿调的抽象线条，象征文学数据流 -->
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
+                        background: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop') center/cover no-repeat;
+                        filter: brightness(0.25) saturate(0.6) hue-rotate(140deg);">
+            </div>
+            <!-- 渐变层：强化视觉中心，过渡到纯黑边缘 -->
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+                        background: radial-gradient(circle at center, rgba(74, 185, 157, 0.1) 0%, var(--bg-black) 90%);">
+            </div>
+            <!-- 右上角装饰性光影 -->
+            <div style="position: absolute; top: -10%; right: -10%; width: 50%; height: 50%; 
+                        background: radial-gradient(circle, rgba(74, 185, 157, 0.08) 0%, transparent 70%); 
+                        filter: blur(50px); z-index: 1;">
+            </div>
+            <!-- 内容层 -->
+            <div class="content-area" style="position: relative; z-index: 2; align-items: center; text-align: center;">
+                <div class="animate-item">
+                    <!-- 顶部装饰 -->
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 25px;">
+                        <div style="width: 40px; height: 1px; background: linear-gradient(90deg, transparent, var(--primary));"></div>
+                        <i class="fas fa-microchip" style="color: var(--primary); font-size: 20px; opacity: 0.8;"></i>
+                        <div style="width: 40px; height: 1px; background: linear-gradient(90deg, var(--primary), transparent);"></div>
+                    </div>      
+                    <h1 style="font-size: 102px; color: var(--text-main); margin-bottom: 15px; font-weight: 800; 
+                               letter-spacing: -1px; text-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+                        文学研究助手
+                    </h1>
+                    <p style="font-size: 26px; letter-spacing: 10px; color: var(--primary); margin-bottom: 60px; font-weight: 300; opacity: 0.8;">
+                        LITERARY RESEARCH ASSISTANT
+                    </p>
+                </div>
+                <!-- 分割线 -->
+                <div style="width: 400px; height: 2px; background: linear-gradient(90deg, transparent, var(--primary), transparent); margin-bottom: 50px;" class="animate-item delay-1"></div>
+                <!-- 小组成员卡片 -->
+                <div style="padding: 30px 65px; background: rgba(255, 255, 255, 0.02); 
+                            border: 1px solid rgba(74, 185, 157, 0.15); border-radius: 20px; 
+                            backdrop-filter: blur(12px); box-shadow: 0 10px 40px rgba(0,0,0,0.3);" class="animate-item delay-2">
+                    <p style="font-weight: 700; color: var(--text-main); font-size: 34px; margin-bottom: 20px;">第 10 组</p>
+                    <div style="display: flex; gap: 30px; font-size: 24px; color: var(--text-dim); font-weight: 300;">
+                        <span>张子馨</span>
+                        <span style="color: var(--primary); opacity: 0.5;">•</span>
+                        <span>周钱宸</span>
+                        <span style="color: var(--primary); opacity: 0.5;">•</span>
+                        <span>顾珺瑶</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部装饰条 -->
+            <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; 
+                        background: linear-gradient(90deg, var(--primary), var(--cyber-cyan)); opacity: 0.6; z-index: 3;">
+            </div>
+            <div class="progress-bar">01 / 27</div>
+        </div>
+
+        <!-- Slide 2: 目录页 (平衡美化版) -->
+        <div class="slide-container next-enter" id="slide-2" style="background: radial-gradient(circle at 50% 50%, rgba(74, 185, 157, 0.03) 0%, transparent 70%);">
+            <h2 class="slide-title">目录<span>Table of Contents</span></h2>
+            
+            <div class="content-area" style="justify-content: center; align-items: center;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; width: 100%; max-width: 1200px; padding: 0 40px;">
+                    
+                    <!-- Item 01 -->
+                    <div class="animate-item delay-1" style="position: relative; padding: 45px 35px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; backdrop-filter: blur(10px); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+                        <div style="position: absolute; top: -15px; left: 30px; background: var(--bg-dark); padding: 0 15px; font-family: 'JetBrains Mono'; font-size: 14px; color: var(--primary); letter-spacing: 3px; border: 1px solid rgba(74, 185, 157, 0.3); border-radius: 10px;">PART 01</div>
+                        <div style="font-size: 34px; color: var(--text-main); font-weight: 700; line-height: 1.4; margin-top: 10px;">KMP 实现与<br>失配跳转逻辑</div>
+                        <div style="margin-top: 20px; height: 2px; width: 40px; background: var(--primary); opacity: 0.6;"></div>
+                    </div>
+
+                    <!-- Item 02 -->
+                    <div class="animate-item delay-1" style="position: relative; padding: 45px 35px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; backdrop-filter: blur(10px);">
+                        <div style="position: absolute; top: -15px; left: 30px; background: var(--bg-dark); padding: 0 15px; font-family: 'JetBrains Mono'; font-size: 14px; color: var(--primary); letter-spacing: 3px; border: 1px solid rgba(74, 185, 157, 0.3); border-radius: 10px;">PART 02</div>
+                        <div style="font-size: 34px; color: var(--text-main); font-weight: 700; line-height: 1.4; margin-top: 10px;">Trie 字典树实现与<br>多模式构建</div>
+                        <div style="margin-top: 20px; height: 2px; width: 40px; background: var(--primary); opacity: 0.6;"></div>
+                    </div>
+
+                    <!-- Item 03 -->
+                    <div class="animate-item delay-2" style="position: relative; padding: 45px 35px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; backdrop-filter: blur(10px);">
+                        <div style="position: absolute; top: -15px; left: 30px; background: var(--bg-dark); padding: 0 15px; font-family: 'JetBrains Mono'; font-size: 14px; color: var(--primary); letter-spacing: 3px; border: 1px solid rgba(74, 185, 157, 0.3); border-radius: 10px;">PART 03</div>
+                        <div style="font-size: 34px; color: var(--text-main); font-weight: 700; line-height: 1.4; margin-top: 10px;">AC 自动机实现与<br>失效函数应用</div>
+                        <div style="margin-top: 20px; height: 2px; width: 40px; background: var(--primary); opacity: 0.6;"></div>
+                    </div>
+
+                    <!-- Item 04 -->
+                    <div class="animate-item delay-2" style="position: relative; padding: 45px 35px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; backdrop-filter: blur(10px);">
+                        <div style="position: absolute; top: -15px; left: 30px; background: var(--bg-dark); padding: 0 15px; font-family: 'JetBrains Mono'; font-size: 14px; color: var(--primary); letter-spacing: 3px; border: 1px solid rgba(74, 185, 157, 0.3); border-radius: 10px;">PART 04</div>
+                        <div style="font-size: 34px; color: var(--text-main); font-weight: 700; line-height: 1.4; margin-top: 10px;">文本辅助助手<br>（预处理与统计）</div>
+                        <div style="margin-top: 20px; height: 2px; width: 40px; background: var(--primary); opacity: 0.6;"></div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 装饰元素 -->
+            <div style="position: absolute; top: 20%; right: 2%; font-family: 'JetBrains Mono'; font-size: 120px; color: rgba(255,255,255,0.02); font-weight: 900; pointer-events: none; transform: rotate(90deg);">CONTENTS</div>
+            
+            <div class="progress-bar">02 / 27</div>
+        </div>
+
+        <!-- Slide 3: 问题介绍 -->
+        <div class="slide-container next-enter" id="slide-3">
+            <h2 class="slide-title">问题介绍<span>Problem Background</span></h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 60px;">
+                    <div class="animate-item">
+                        <h3 style="color: var(--primary); margin-bottom: 25px; font-size: 38px;">1. 任务定义</h3>
+                        <p style="font-size: 26px; line-height: 1.8; color: var(--text-main); margin-bottom: 40px;">
+                            系统需统计特定词集（<span class="highlight-accent">最多100个单词</span>）在英文小说中出现的频次。必须在 <span class="highlight-primary">处理海量文本</span> 时保持极高的查找速度与行号定位精度
+                        </p>
+                        <h3 style="color: var(--primary); margin-bottom: 25px; font-size: 38px;">2. 核心约束</h3>
+                        <div style="font-size: 24px; line-height: 2; color: var(--text-dim);">
+                            <p>• 单词禁止跨行匹配，单行限制 <span class="highlight-cyan">120 字符</span></p>
+                            <p>• <span class="highlight-accent">单次扫描：</span> 全文仅遍历 <span class="highlight-primary">一次</span> 即可完成所有单词统计</p>
+                            <p>• 输出包含每个模式的 <span class="highlight-cyan">总频次</span> 与 <span class="highlight-cyan">行号列表</span></p>
+                        </div>
+                    </div>
+                    <div class="animate-item delay-1" style="background: rgba(255,255,255,0.03); padding: 40px; border-radius: 12px; border: 1px solid rgba(0, 255, 255, 0.2);">
+                        <h4 style="color: var(--accent); margin-bottom: 20px; font-size: 26px; font-weight: 700;">输入流处理示例</h4>
+                        <div style="background: #000; padding: 25px; font-family: 'JetBrains Mono'; font-size: 20px; border-radius: 8px;">
+                            <span style="color: #6a9955;">// Pattern Set</span><br>
+                            ["Alice", "Rabbit", "Queen"]<br><br>
+                            <span style="color: #6a9955;">// Data Stream</span><br>
+                            "Alice was beginning to get..."
+                        </div>
+                        <p style="font-size: 18px; margin-top: 25px; color: var(--text-dim); font-style: italic;">
+                            实时识别流中的模式并维护行号状态索引
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">03 / 27</div>
+        </div>
+
+        <!-- Slide 4: KMP 核心解析 -->
+        <div class="slide-container next-enter" id="slide-4">
+            <h2 class="slide-title">KMP 核心解析<span>Algorithm Mechanism</span></h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px;">
+                    <div class="animate-item">
+                        <h3 style="color: var(--primary); margin-bottom: 20px; font-size: 38px;">核心原理：指针零回溯</h3>
+                        <div style="font-size: 24px; line-height: 1.6; color: var(--text-main);">
+                            <p style="margin-bottom: 15px;">利用 <span class="highlight-accent">Next 数组</span> 记录模式串中“相等前后缀”的最大长度：</p>
+                            <ul style="list-style: none; padding-left: 0;">
+                                <li style="margin-bottom: 10px;"><i class="fa-solid fa-bolt" style="color: var(--primary); margin-right: 15px;"></i><span class="highlight-cyan">高效性：</span> 主串指针 <span class="highlight-accent">从不回溯</span>，复杂度 O(M+N)</li>
+                                <li style="margin-bottom: 10px;"><i class="fa-solid fa-bolt" style="color: var(--primary); margin-right: 15px;"></i><span class="highlight-cyan">智能跳转：</span> 匹配失败时，通过 Next 数组快速对齐</li>
+                            </ul>
+                        </div>
+                        <div style="margin-top: 25px; padding: 20px; background: rgba(74, 185, 157, 0.15); border-radius: 12px; border-left: 8px solid var(--primary);">
+                            <p style="font-size: 22px; line-height: 1.6;">在本实验中，单行文本内单词若匹配成功，程序将立即记录并 <code class="highlight-accent">统计本行词频</code> ，确报统计口径的严谨</p>
+                        </div>
+                    </div>
+
+                    <div class="animate-item delay-1">
+                        <div class="kmp-viz-container" id="kmp-viz-box">
+                            <div class="pointer" id="kmp-pointer">▼</div>
+                            <div class="text-row" id="text-row" style="margin-top: 40px;">
+                                <div class="cell">A</div><div class="cell">B</div><div class="cell">A</div><div class="cell">B</div><div class="cell">A</div><div class="cell">B</div><div class="cell">C</div>
+                            </div>
+                            <div class="pattern-wrapper" id="pattern-wrapper" style="top: 155px;">
+                                <div class="pattern-row">
+                                    <div class="cell">A</div><div class="cell">B</div><div class="cell">A</div><div class="cell">C</div>
+                                </div>
+                                <div style="font-size: 18px; color: var(--accent); text-align: center; margin-top: 10px; font-weight: bold;">模式串 P (Next: [0, 0, 1, 0])</div>
+                            </div>
+                            <div id="viz-status">点击下方按钮观看演练</div>
+                        </div>
+                        <button onclick="runKmpViz()" id="play-btn" style="width: 100%; margin-top: 20px; padding: 18px; background: var(--primary); border: none; color: black; font-weight: 900; font-size: 22px; cursor: pointer; border-radius: 8px; letter-spacing: 4px; box-shadow: 0 4px 15px rgba(74,185,157,0.4);">重播匹配逻辑</button>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">04 / 27</div>
+        </div>
+
+        <!-- Slide 5: KMP 分行实现 (初始化函数) -->
+        <div class="slide-container next-enter" id="slide-5">
+            <h2 class="slide-title">KMP 分行实现：初始化<span>init()</span></h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 30px; align-items: start;">
+                    <div>
+                        <h4 style="color: var(--primary); font-size: 38px; margin-bottom: 25px;"><i class="fa-solid fa-layer-group"></i> 模式串预处理阶段</h4>
+                        <p style="font-size: 26px; color: var(--text-main); line-height: 1.8; margin-bottom: 20px;">
+                            程序首先将所有待统计单词存储在固定大小的数组 <code class="highlight-cyan">word[M]</code> 中，对每个单词构建对应的 KMP 前缀表 <code class="highlight-cyan">kmp[i]</code>
+                        </p>
+                        <h4 style="color: var(--primary); font-size: 34px; margin-bottom: 15px;"><i class="fa-solid fa-microchip"></i> 核心逻辑</h4>
+                        <p style="font-size: 25px; color: var(--text-main); line-height: 1.8;">
+                            前缀表的计算遵循 KMP 原理：记录每个位置的 <span class="highlight-accent">前后缀最长公共长度</span>。在失配时快速回退，确保每个模式串在 <span class="highlight-primary">O(len_word)</span> 时间内完成扫描
+                        </p>
+                    </div>
+                    <div class="code-window" style="margin-top: 28px;">
+<pre style="font-size: 18px;"><span class="kw">void</span> <span class="fn">init</span>(){
+    <span class="kw">for</span>(<span class="kw">int</span> i=<span class="num">0</span>;i&lt;num;i++){
+        <span class="kw">int</span> idx_j=<span class="num">0</span>;    <span class="cm">//j: 已匹配长度</span>
+        kmp[i].<span class="fn">resize</span>(word[i].<span class="fn">size</span>());
+        <span class="kw">for</span>(<span class="kw">int</span> k=<span class="num">1</span>;k&lt;(<span class="kw">int</span>)word[i].<span class="fn">size</span>();k++){
+            <span class="kw">while</span>(idx_j&&word[i][idx_j]!=word[i][k])
+                idx_j=kmp[i][idx_j-<span class="num">1</span>];
+            <span class="cm">// 不匹配时尝试更短前缀，直至匹配或重置</span>
+            <span class="kw">if</span>(word[i][k]==word[i][idx_j]) idx_j++;
+            kmp[i][k]=idx_j;
+        }
+    }
+}</pre>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">05 / 27</div>
+        </div>
+
+        <!-- Slide 6: KMP 分行实现 (匹配函数) -->
+        <div class="slide-container next-enter" id="slide-6">
+            <h2 class="slide-title">KMP 分行实现：匹配逻辑<span>KMP_match()</span></h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 38% 58%; gap: 4%; align-items: center;">
+                    
+                    <!-- 左侧：文本匹配逻辑描述 -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <p>在<strong>文本匹配阶段</strong>，程序逐行读取文本，并将整行转换为小写以实现<strong>大小写不敏感匹配</strong></p>
+                            <p>每行文本被视作一个整体字符串传入函数。对每个模式串，算法从行首开始逐字符比较</p>
+                            <p>当字符不匹配时，利用<strong>前缀表快速回退</strong>模式串指针；匹配成功则将行号存入 <code>pos[i]</code> 并进行 <strong>词频统计</strong>，确保每词每行次数分别记录</p>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：代码实现 (原样保留) -->
+                    <div class="code-window">
+<pre>
+<span class="cm">//对于长度为len的单词，匹配复杂度为O(len*m)</span>
+<span class="kw">void</span> <span class="fn">KMP_match</span>(string &book, <span class="kw">int</span> line){
+    <span class="kw">for</span>(<span class="kw">int</span> i=<span class="num">0</span>;i&lt;num;i++){
+        <span class="kw">int</span> idx_j=<span class="num">0</span>;
+        <span class="kw">for</span>(<span class="kw">int</span> k=<span class="num">0</span>;k&lt;(<span class="kw">int</span>)book.<span class="fn">size</span>();k++){
+            <span class="kw">while</span>(idx_j&&word[i][idx_j]!=book[k]) 
+                idx_j=kmp[i][idx_j-<span class="num">1</span>];
+            <span class="cm">//不匹配时则从匹配的长度为kmp[i][idx_j-1]的前缀找已匹配的最长前缀</span>
+            <span class="cm">//本质即为尝试更短的前缀，直到找到一个匹配的前缀或者没有前缀了</span>
+            <span class="kw">if</span>(book[k]==word[i][idx_j]) idx_j++;
+            <span class="kw">if</span>(idx_j==(<span class="kw">int</span>)word[i].<span class="fn">size</span>()){
+                <span class="cm">// 记录匹配位置，行号去重处理</span>
+                <span class="kw">int</span> siz=pos[i].<span class="fn">size</span>();
+                <span class="kw">if</span>(!siz||pos[i][siz-<span class="num">1</span>]!=line) 
+                    pos[i].<span class="fn">push_back</span>({line,<span class="num">1</span>}); 
+                <span class="kw">if</span>(siz&&pos[i][siz-<span class="num">1</span>]==line)
+                    pos[i][siz-<span class="num">1</span>].<span class="fn">second</span>++; 
+                cnt[i]++;
+            }
+        }
+    }
+}
+</pre>
+                    </div>
+
+                </div>
+            </div>
+            <div class="progress-bar">06 / 27</div>
+        </div>
+
+        <!-- Slide 7: KMP 分行实现 (主函数) -->
+        <div class="slide-container next-enter" id="slide-7">
+            <h2 class="slide-title">KMP 分行实现：执行流程<span>Main Logic</span></h2>
+            <div class="content-area">
+                <div class="animate-item">
+                    <p style="font-size: 22px; color: var(--text-dim); margin-bottom: 20px;">
+                        主逻辑负责文件加载、<span class="highlight-cyan">模式串</span>预处理、逐行扫描统计以及结果的格式化输出
+                    </p>
+                    <div class="code-window">
+<pre>ifstream <span class="fn">fin</span>(<span class="str">"input.txt"</span>);
+<span class="kw">if</span>(!fin){ cout&lt;&lt;<span class="str">"文件打开失败"</span>&lt;&lt;endl; <span class="kw">return</span> <span class="num">0</span>; }
+<span class="kw">while</span>(fin&gt;&gt;word[num]){
+    <span class="kw">if</span>(word[num] == <span class="str">"#"</span>) <span class="kw">break</span>;
+    num++;
+}
+<span class="fn">init</span>(); <span class="cm">//预处理模式串</span>
+fin.<span class="fn">ignore</span>();
+<span class="kw">while</span>(<span class="fn">getline</span>(fin,book)){
+    <span class="kw">if</span>(book==<span class="str">"#"</span>) <span class="kw">break</span>;
+    line++; <span class="cm">//当前所在行</span>
+    <span class="fn">KMP_match</span>(book,line); <span class="cm">//对每个单词进行匹配</span>
+}
+<span class="kw">for</span>(<span class="kw">int</span> i=<span class="num">0</span>;i&lt;num;i++){
+    <span class="kw">if</span>(!pos[i].<span class="fn">size</span>()) <span class="kw">continue</span>;
+    cout&lt;&lt;word[i]&lt;&lt;<span class="str">"出现次数:"</span>&lt;&lt;cnt[i]&lt;&lt;endl;
+    <span class="kw">for</span>(<span class="kw">int</span> j=<span class="num">0</span>;j&lt;(<span class="kw">int</span>)pos[i].<span class="fn">size</span>();j++) 
+        cout&lt;&lt;<span class="str">"第"</span>&lt;&lt;pos[i][j].<span class="fn">first</span>&lt;&lt;<span class="str">"行 出现"</span>&lt;&lt;pos[i][j].<span class="fn">second</span>&lt;&lt;<span class="str">"次"</span>&lt;&lt;endl;
+    cout&lt;&lt;endl;
+}</pre>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">07 / 27</div>
+        </div>
+
+        <!-- Slide 8: KMP 算法分析 -->
+        <div class="slide-container next-enter" id="slide-8">
+            <h2 class="slide-title">KMP 算法分析<span>Complexity & Analysis</span></h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <div class="animate-item">
+                        <div class="summary-card">
+                            <h3>1. 复杂度分析</h3>
+                            <ul class="summary-list">
+                                <li><strong>时间复杂度：O(M + K × N)</strong><br>
+                                    <span style="font-size: 18px; color: var(--text-dim);">M 为所有词总长（预处理）；K 为词数，N 为文本长度（匹配时主串指针不回溯）</span>
+                                </li>
+                                <li style="margin-top: 20px;"><strong>空间复杂度：O(M + N)</strong><br>
+                                    <span style="font-size: 18px; color: var(--text-dim);">存储模式串、Next 数组及结果行号向量，内存占用极小</span>
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(74, 185, 157, 0.1); border: 1px solid var(--primary); border-radius: 8px;">
+                                <p style="font-size: 20px;">在本实验规模（K≤100）下效率极高，单次匹配复杂度仅为 O(当前行长)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="animate-item delay-1">
+                        <div class="summary-card">
+                            <h3>2. 核心优缺点</h3>
+                            <ul class="summary-list">
+                                <li><strong>优势：</strong> 实现逻辑直观，内存占用极低，由于采用了 <code>单行读取</code>，符合“不跨行匹配”约束</li>
+                                <li><strong>局限：</strong> 未进行单词分词处理，易发生子串误匹配（如查找 "he" 误匹配 "she"）</li>
+                                <li><strong>瓶颈：</strong> 多模式串匹配时需重复扫描文本行，当 K 增大时性能会线性下降</li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(255, 107, 107, 0.1); border: 1px solid var(--danger); border-radius: 8px;">
+                                <p style="font-size: 20px; color: var(--accent);">如何解决？——— 分词处理 + 多模式串匹配</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">08 / 27</div>
+        </div>
+     
+        <!-- Slide 9: KMP分词实现分析 -->
+        <div class="slide-container next-enter" id="slide-9">
+            <h2 class="slide-title">KMP 分词实现：数据结构与逻辑<span>Word-level Analysis</span></h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 35% 61%; gap: 4%; align-items: center;">
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <p><strong>分词核心思想：</strong><br>程序利用 <code>stringstream</code> 将每行文本划分为独立词元(token)，确保匹配具有<strong>完整边界</strong></p>
+                            <p><strong>坐标定位：</strong><br>使用 <code>pair&lt;int,int&gt;</code> 记录匹配结果，能够精确追踪单词所在的<strong>行号及行内序号</strong></p>
+                            <p>相比分行实现，此方法有效解决了子串误匹配问题，定位更加精准</p>
+                        </div>
+                    </div>
+                    <div>
+                        <!-- 第一个代码框：数据结构定义 -->
+                        <div class="code-window" style="height: 220px;">
+<pre style="font-size: 16px;">
+<span class="cm">// 2.1 核心数据结构定义</span>
+<span class="kw">const int</span> N = <span class="num">1e6+10</span>;
+<span class="kw">const int</span> M = <span class="num">105</span>;
+<span class="type">string</span> word[M], book;
+<span class="kw">int</span> num = <span class="num">0</span>, line = <span class="num">0</span>, no = <span class="num">0</span>;
+<span class="type">vector</span>&lt;<span class="type">pair</span>&lt;<span class="kw">int</span>,<span class="kw">int</span>&gt;&gt; pos[M]; <span class="cm">// 存储：{行号, 单词序号}</span>
+<span class="type">vector</span>&lt;<span class="kw">int</span>&gt; kmp[M];          <span class="cm">// 每个模式串对应的Next表</span>
+</pre>
+                        </div>
+                        <!-- 第二个代码框：主循环分词逻辑 -->
+                        <div class="code-window" style="height: 300px;">
+<pre style="font-size: 15px;">
+<span class="cm">// 文本处理阶段：引入分词逻辑</span>
+<span class="kw">while</span>(<span class="fn">getline</span>(fin, book)){
+    no = <span class="num">0</span>; 
+    <span class="kw">if</span>(book == <span class="str">"#"</span>) <span class="kw">break</span>;
+    line++;
+    <span class="type">stringstream</span> <span class="fn">ss</span>(book); <span class="cm">// 利用流进行单词切分</span>
+    <span class="type">string</span> token;
+    <span class="kw">while</span>(ss &gt;&gt; token){
+        no++; <span class="cm">// 行内单词计数器</span>
+        <span class="fn">transform</span>(token.<span class="fn">begin</span>(), token.<span class="fn">end</span>(), token.<span class="fn">begin</span>(), ::tolower);
+        <span class="fn">KMP_match</span>(token, line, no); <span class="cm">// 在分好的词元中精准匹配</span>
+    }
+}
+</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">09 / 27</div>
+        </div>
+
+        <!-- Slide 10: KMP分词性能分析 -->
+        <div class="slide-container next-enter" id="slide-10">
+            <h2 class="slide-title">KMP 分词实现：复杂度与评价<span>Word-level Evaluation</span></h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <div class="animate-item">
+                        <div class="summary-card">
+                            <h3>1. 复杂度分析</h3>
+                            <ul class="summary-list">
+                                <li><strong>时间复杂度：O(M + n × m)</strong><br>
+                                    <span style="font-size: 18px; color: var(--text-dim);">n为文本总词数，m为模式串数量。预处理与分行实现一致 O(M)</span>
+                                </li>
+                                <li style="margin-top: 20px;"><strong>空间复杂度：O(M + n)</strong><br>
+                                    <span style="font-size: 18px; color: var(--text-dim);">增加了分词缓存空间及 <code>pair</code> 结构存储开销，但整体处于可控范围</span>
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(0, 255, 255, 0.1); border: 1px solid var(--cyber-cyan); border-radius: 8px;">
+                                <p style="font-size: 19px;"><strong>特点：</strong>匹配效率相较于分行实现有明显提升，且边界判断更可靠</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="animate-item delay-1">
+                        <div class="summary-card">
+                            <h3>2. 核心优缺点</h3>
+                            <ul class="summary-list">
+                                <li><strong>优势：</strong> 精确匹配完整单词，避免了 "he" 误判 "she" 等问题；支持行内单词精确序号定位</li>
+                                <li><strong>局限：</strong> 在多模式串场景下，仍需对每个 <code>token</code> 遍历所有模式串，效率仍有提升空间</li>
+                                <li><strong>适用场景：</strong> 中等规模文本处理，对单词边界匹配精度要求较高的任务</li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(255, 215, 0, 0.1); border: 1px solid var(--accent); border-radius: 8px;">
+                                <p style="font-size: 19px; color: var(--accent);">优化方向：多模式匹配可升级为 Trie 或 AC 自动机</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">10 / 27</div>
+        </div>
+
+        <!-- Slide 11: Trie 字典树（算法介绍+可视化） -->
+        <div class="slide-container next-enter" id="slide-11">
+            <h2 class="slide-title">Trie 字典树：多模式串匹配<span>Multi-Pattern Matching</span></h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 35% 61%; gap: 4%; align-items: center; height: 100%;">
+                    
+                    <!-- 左侧描述区 -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <p><strong>为何引入 Trie：</strong><br>Trie 字典树能实现<strong>多模式字符串的分词匹配</strong>，KMP 则只能查找单个模式，应对多模式串查找时效率较低</p>
+                            <p><strong>构建过程：</strong><br>将所有待统计单词插入 Trie 结构，每个节点通过字符映射连接子节点，并在终止节点记录对应模式串编号及 <strong>out 列表</strong></p>
+                            <p><strong>匹配机制：</strong><br>扫描文本时逐行分词，对每行文本串从其位置出发在 Trie 中逐字符匹配</p>
+                        </div>
+                    </div>
+
+                    <!-- 右侧可视化区 -->
+                    <div style="display: flex; flex-direction: column;">
+                        <div class="trie-canvas" id="trie-viz">
+                            <div class="token-tag" id="trie-status-tag">系统就绪：等待演练</div>
+                            <svg width="100%" height="100%" id="trie-svg" style="position:absolute; top:0; left:0; pointer-events:none;"></svg>
+                            
+                            <!-- 节点布局调整 -->
+                            <div class="node" id="node-root" style="top: 30px; left: calc(50% - 20px);">Root</div>
+                            <div class="node" id="node-h" style="top: 110px; left: 35%;">H</div>
+                            <div class="node" id="node-he" style="top: 210px; left: 25%;">E</div>
+                            <div class="node" id="node-hi" style="top: 210px; left: 45%;">I</div>
+                            <div class="node" id="node-his" style="top: 310px; left: 45%;">S</div>
+                            
+                            <div class="node" id="node-s" style="top: 110px; left: 65%;">S</div>
+                            <div class="node" id="node-sh" style="top: 210px; left: 65%;">H</div>
+                            <div class="node" id="node-she" style="top: 310px; left: 65%;">E</div>
+                        </div>
+                        <button onclick="runTrieSearch()" id="play-trie-btn" style="width: 100%; padding: 12px; background: var(--primary); border: none; color: black; font-weight: 800; font-size: 16px; cursor: pointer; border-radius: 8px; margin-top: 10px; transition: 0.3s;">点击开始动画演练</button>
+                    </div>
+
+                </div>
+            </div>
+            <div class="progress-bar">11 / 24</div>
+        </div>
+
+        <!-- Slide 12: Trie 字典树（结构与插入） -->
+        <div class="slide-container" id="slide-12">
+            <h2 class="slide-title">Trie 字典树：结构与插入<span>Algorithm 3.2</span></h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 41% 60%; align-items: center; height: 100%; gap: 30px;">
+                    
+                    <!-- 左侧：描述文字 -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <p><strong>Trie 字典树</strong>（前缀树）是实现多模式匹配的物理载体，通过共享公共前缀显著减少冗余比较</p>
+                            <p>1. <strong>映射逻辑</strong>：<code>getnum</code> 函数将 ASCII 为 33-126 的字符 统一映射至 0-100 范围内，实现空间的紧致分配</p>
+                            <p>2. <strong>动态构建</strong>：<code>insert</code> 函数在插入模式串时，若当前分支不存在则通过 <code>idx++</code> 动态创建节点</p>
+                            <p>3. <strong>信息存储</strong>：在模式串结束的节点 <code>p</code> 处，用 <code>out[p]</code> 列表存储对应的模式串编号</p>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：两个代码窗口 -->
+                    <div >
+                        <div class="code-window" style="max-height: 200px;">
+<pre><span class="kw">const int</span> N=<span class="num">1e5+10</span>;        <span class="cm">// N为总节点数</span>
+<span class="kw">const int</span> M=<span class="num">105</span>,CH=<span class="num">100</span>;    <span class="cm">// M为单词数,CH为连接分支可能</span>
+<span class="type">string</span> word[M],s,book;
+<span class="type">vector</span>&lt;<span class="type">pair</span>&lt;<span class="kw">int</span>,<span class="kw">int</span>&gt;&gt; pos[M];     <span class="cm">// 出现的行号和单词序号</span>
+<span class="kw">int</span> line=<span class="num">0</span>,no=<span class="num">0</span>,num=<span class="num">0</span>,cnt[M];
+<span class="kw">int</span> trie[N][CH],idx=<span class="num">1</span>;       <span class="cm">// idx 当前分配到的节点编号总数</span>
+<span class="type">vector</span>&lt;<span class="kw">int</span>&gt; out[N];     <span class="cm">// out[u] 存储节点u包含的模式串编号</span></pre>
+                        </div>
+
+                        <div class="code-window" style="max-height: 350px;">
+<pre><span class="kw">int</span> <span class="fn">getnum</span>(<span class="kw">char</span> x){
+    <span class="kw">int</span> res=x-<span class="str">'0'</span>;
+    <span class="kw">if</span>(res&gt;=<span class="num">33</span>&amp;&amp;res&lt;=<span class="num">126</span>) <span class="kw">return</span> res-<span class="num">33</span>;
+    <span class="kw">return</span> -<span class="num">1</span>;
+}
+
+<span class="kw">void</span> <span class="fn">insert</span>(<span class="type">string</span> str,<span class="kw">int</span> id){     <span class="cm">// id:模式串编号</span>
+    <span class="kw">int</span> p=<span class="num">0</span>,len=str.<span class="fn">length</span>();
+    <span class="kw">for</span>(<span class="kw">int</span> i=<span class="num">0</span>;i&lt;len;i++){
+        <span class="kw">int</span> c=<span class="fn">getnum</span>(str[i]);
+        <span class="cm">// 若无该分支，就创建新节点</span>
+        <span class="kw">if</span>(!trie[p][c]) trie[p][c]=idx++; 
+        p=trie[p][c];                <span class="cm">// 移动至子节点</span>
+    }
+    out[p].<span class="fn">push_back</span>(id);
+    <span class="cm">// 走到节点p时，记录该路径代表的模式串编号</span>
+}</pre>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="progress-bar">12 / 27</div>
+        </div>
+
+        <!-- Slide 13: Trie 字典树（匹配函数） -->
+        <div class="slide-container next-enter" id="slide-13">
+            <h2 class="slide-title">Trie 字典树：匹配逻辑<span>Algorithm 3.2</span></h2>
+            <div class="content-area">
+                <div class="grid-2col animate-item">
+                    <div class="desc-text">
+                        <p>匹配结果通过 <br><code>vector&lt;pair&lt;int,int&gt;&gt; pos[M]</code><br> 记录，每个元素保存出现的<strong>行号</strong>和<strong>词频</strong></p>
+                        <p>在匹配过程中，系统会检查 <code>pos[id]</code> 的末尾记录：若当前行已存在，则<strong>累加行内频次</strong>；若为新行，则<strong>新增记录</strong>
+                        <p>算法从单词的每个起始位置开始尝试向下遍历，直到<strong>路径中断或字符不合法</strong></p>
+                        <p>这种机制确保了即使单词中包含<strong>多个目标模式串</strong>，也能通过 <code>out</code> 列表完整提取所有结果</p>
+                    </div>
+                    <div class="code-window" style="margin-top: 28px;">
+<pre><span class="kw">void</span> <span class="fn">Trie_match</span>(<span class="type">string</span> &book,<span class="kw">int</span> line){
+    <span class="kw">int</span> len=book.<span class="fn">length</span>();
+    <span class="cm">//从单词的每个位置开始匹配</span>
+    <span class="kw">for</span>(<span class="kw">int</span> st=<span class="num">0</span>;st&lt;len;st++){
+        <span class="kw">int</span> p=<span class="num">0</span>;
+        <span class="kw">for</span>(<span class="kw">int</span> i=st;i&lt;len;i++){
+            <span class="kw">int</span> c=<span class="fn">getnum</span>(book[i]);
+            <span class="kw">if</span>(c==-<span class="num">1</span>) <span class="kw">break</span>; <span class="cm">//如果字符不合法，直接跳出循环</span>
+            <span class="kw">if</span>(!trie[p][c])<span class="kw"> break</span>; <span class="cm">//没有这个字符分支，则没有这个串</span>
+            p=trie[p][c];
+            <span class="kw">for</span>(<span class="kw">int</span> j=<span class="num">0</span>;j&lt;(<span class="kw">int</span>)out[p].<span class="fn">size</span>();j++){
+                <span class="kw">int</span> id=out[p][j]; <span class="cm">// 模式串编号</span>
+                <span class="kw">int</span> siz=pos[id].<span class="fn">size</span>();
+                <span class="cm">// 记录匹配位置，行号和该行中匹配到的次数</span>
+                <span class="kw">if</span>(!siz||pos[id][siz-<span class="num">1</span>].first!=line)
+                    pos[id].<span class="fn">push_back</span>({line,<span class="num">1</span>});
+                <span class="kw">else</span> <span class="kw">if</span>(siz&&pos[id][siz-<span class="num">1</span>].first==line)
+                    pos[id][siz-<span class="num">1</span>].second++;
+                cnt[id]++;
+            }
+        }
+    }
+}</pre>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">13 / 27</div>
+        </div>
+ 
+        <!-- Slide 14: Trie 字典树（算法分析） -->
+        <div class="slide-container next-enter" id="slide-14">
+            <h2 class="slide-title">Trie 字典树算法分析<span>Complexity & Analysis</span></h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <div class="animate-item">
+                        <div class="summary-card">
+                            <h3>1. 复杂度分析</h3>
+                            <ul class="summary-list">
+                                <li><strong>时间复杂度：O(M + N × L)</strong><br>
+                                    <span style="font-size: 18px; color: var(--text-dim);">M 为模式串总字符数（构建）；N 为文本总字符数，L 为模式串平均长度（匹配）</span>
+                                </li>
+                                <li style="margin-top: 20px;"><strong>空间复杂度：O(M + N)</strong><br>
+                                    <span style="font-size: 18px; color: var(--text-dim);">利用前缀共享特性节省存储；M 相关于字典树节点，N 相关于结果记录与分词缓存</span>
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(74, 185, 157, 0.1); border: 1px solid var(--primary); border-radius: 8px;">
+                                <p style="font-size: 19px;">得益于前缀共享，空间利用率极高，且多模式串匹配效率显著优于重复调用的 KMP 算法</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="animate-item delay-1">
+                        <div class="summary-card">
+                            <h3>2. 核心优缺点</h3>
+                            <ul class="summary-list">
+                                <li><strong>优势：</strong> 支持一次扫描完成多模式匹配；精确控制单词边界逻辑；前缀共享有效减少冗余存储</li>
+                                <li><strong>局限：</strong> 缺乏失配指针。匹配失败时需回退至根节点重新开始，在极端长文本下效率受限</li>
+                                <li><strong>适用：</strong> 追求实现简洁与效率平衡的中等规模文本处理场景</li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(255, 107, 107, 0.1); border: 1px solid var(--danger); border-radius: 8px;">
+                                <p style="font-size: 19px; color: var(--accent);">进阶方案：引入失配指针 ——> AC 自动机</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">14 / 27</div>
+        </div>
+
+        <!-- Slide 15: AC自动机（算法介绍+可视化） -->
+        <div class="slide-container next-enter" id="slide-15">
+            <h2 class="slide-title">AC 自动机<span>Algorithm & Multi-Pattern Match</span></h2>
+            <div class="content-area">
+                <div class="ac-grid">
+                    <div class="ac-text-info animate-item">
+                        <p>在KMP与Trie字典树的基础上，我们结合二者思想，继续进行<strong>AC自动机</strong>实现多模式串分词匹配的实验</p>
+                        <p style="margin-top:15px;">具有<strong>Trie树思想</strong>：将所有目标单词插入Trie树，并在每个终止节点记录模式串编号</p>
+                        <p style="margin-top:15px;">具有<strong>KMP思想</strong>：通过BFS构建<strong>fail指针</strong>，实现失配时快速跳转，保证每个字符只需沿next或fail访问一次</p>
+                        <p style="margin-top:15px;">AC自动机是多模式匹配的核心。它通过在Trie树上增加<strong>失配指针 (Fail Pointer)</strong>，使得匹配失败时无需回退文本指针</p>
+                    </div>
+
+                    <div class="ac-viz-panel animate-item delay-1">
+                        <div class="match-bar" id="match-bar"></div>
+                        <div class="ac-canvas" id="ac-canvas">
+                            <svg id="fail-svg" style="position:absolute; width:100%; height:100%; top:0; left:0; pointer-events:none;"></svg>
+                        </div>
+                        <div class="viz-footer">
+                            <div class="status-msg" id="status-msg">等待操作：1. 构建 Trie</div>
+                            <div class="control-group">
+                                <button class="btn-action" id="step-1">1. 构建 Trie</button>
+                                <button class="btn-action" id="step-2" disabled>2. 构建 Fail</button>
+                                <button class="btn-action" id="step-3" disabled>3. 开始匹配</button>
+                                <button class="btn-action btn-reset" id="btn-reset">重置</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">15 / 27</div>
+        </div>
+
+        <!-- Slide 16: AC自动机（数据结构） -->
+        <div class="slide-container next-enter" id="slide-16">
+            <h2 class="slide-title">AC 自动机：核心数据结构<span>Multi-Pattern Structure</span></h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 36% 60%; gap: 4%; align-items: center;">
+                    <!-- 左侧描述：模仿Slide 9布局 -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <p><strong>核心架构：</strong><br>AC自动机在Trie字典树基础上扩展，通过 <span class="highlight-cyan">trie_AC[N].next[100]</span> 实现多模式前缀共享</p>
+                            <p><strong>状态跳转：</strong><br>利用 <code>fail</code> 指针处理失配情况，指向最长可匹配前缀，实现一次扫描同时匹配多个模式串</p>
+                            <p><strong>结果映射：</strong><br>每个节点维护 <code>out</code> 向量记录匹配到的词号。空间复杂度与节点数呈线性关系，适合大规模任务</p>
+                        </div>
+                    </div>
+
+                    <!-- 右侧代码：模仿Slide 9处理方式 -->
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                        <!-- 代码框 1：参数与基础存储 -->
+                        <div class="code-window delay-1">
+<pre>
+<span class="cm">// 1. 全局配置与存储定义</span>
+<span class="kw">const int</span> N=<span class="num">1e5+10</span>;
+<span class="kw">const int</span> M=<span class="num">105</span>;
+<span class="type">string</span> word[M],s,book;
+<span class="kw">int</span> line=<span class="num">0</span>,no=<span class="num">0</span>,num=<span class="num">0</span>,cnt[M];
+<span class="kw">int</span> idx=<span class="num">1</span>;
+<span class="type">vector</span>&lt;<span class="type">pair</span>&lt;<span class="kw">int</span>,<span class="kw">int</span>&gt;&gt; pos[M]; <span class="cm">//出现的行号和单词序号</span>
+</pre>
+                        </div>
+                        
+                        <!-- 代码框 2：AC节点结构 -->
+                        <div class="code-window delay-2">
+<pre>
+<span class="cm">// 2. AC自动机节点结构</span>
+<span class="kw">struct</span> <span class="type">trie</span>{
+    <span class="kw">int</span> fail;                <span class="cm">//AC自动机失配指针</span>
+    <span class="type">vector</span>&lt;<span class="kw">int</span>&gt; out;         <span class="cm">//以该节点结尾的模式串编号</span>
+    <span class="kw">int</span> next[<span class="num">100</span>];            <span class="cm">//该节点第c个字符分支指向的子结点编号</span>
+}trie_AC[N];
+</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">16 / 27</div>
+        </div>
+        
+        <!-- Slide 17: AC自动机 字符处理与模式串插入 -->
+        <div class="slide-container next-enter" id="slide-17">
+            <h2 class="slide-title">AC 自动机：字符预处理与插入</h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 40% 60%; gap: 4%; align-items: center;">
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <p><strong>预处理阶段：</strong><br>每个单词通过 <code>insert</code> 函数逐字符插入 Trie 树。<br>节点通过  <span class="highlight-cyan">trie_AC[u].next[c]</span> 指向子节点，若不存在则新建，通过<strong>前缀共享</strong>减少存储开销</p>
+                            <p><strong>终止标记：</strong><br>单词插入完成后，在终止节点的 <code>out</code> 向量中记录模式串编号，实现多模式串的统一管理并为后续匹配提供结构基础</p>
+                        </div>
+                    </div>
+                    <div>
+                        <!-- 第一个代码框：数据结构与 getnum -->
+                        <div class="code-window" style="height: 200px;">
+<pre>
+<span class="kw">const int</span> N=1e5+10;
+<span class="kw">const int</span> M=105;
+<span class="type">struct</span> <span class="type">trie</span>{
+    <span class="kw">int</span> fail;           <span class="cm">//AC自动机失配指针</span>
+    <span class="type">vector</span>&lt;<span class="kw">int</span>&gt; out;    <span class="cm">//以该节点结尾的模式串编号</span>
+    <span class="kw">int</span> next[100];       <span class="cm">//该节点第c个字符分支指向的子结点编号</span>
+}trie_AC[N];
+
+<span class="kw">int</span> <span class="fn">getnum</span>(<span class="kw">char</span> x){
+    <span class="kw">int</span> res=x-<span class="str">'0'</span>;
+    <span class="kw">if</span>(res&gt;=<span class="num">33</span>&amp;&amp;res&lt;=<span class="num">126</span>) <span class="kw">return</span> res-<span class="num">33</span>;
+    <span class="kw">return</span> -<span class="num">1</span>;
+}
+</pre>
+                        </div>
+                        <!-- 第二个代码框：insert 函数 -->
+                        <div class="code-window" style="height: 320px;">
+<pre>
+<span class="kw">void</span> <span class="fn">insert</span>(<span class="type">string</span> &s,<span class="kw">int</span> id){
+    <span class="kw">int</span> p=0;
+    <span class="kw">for</span>(<span class="kw">int</span> i=0;i&lt;(<span class="kw">int</span>)s.<span class="fn">size</span>();i++){
+        <span class="kw">int</span> c=<span class="fn">getnum</span>(s[i]);
+        <span class="kw">if</span>(c==-1) <span class="kw">continue</span>;
+        <span class="kw">if</span>(!trie_AC[p].next[c]) trie_AC[p].next[c]=idx++;
+        p=trie_AC[p].next[c];
+    }
+    trie_AC[p].out.<span class="fn">push_back</span>(id); <span class="cm">//标记单词结尾</span>
+}
+</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">17 / 27</div>
+        </div>
+
+        <!-- Slide 18: AC 自动机：BFS 构建失配指针 -->
+        <div class="slide-container next-enter" id="slide-18">
+            <h2 class="bfs-slide-title">AC 自动机：BFS 构建失配指针<span>模式串: sh, she, his, he</span></h2>
+            <div class="content-area">
+                <div class="bfs-main-layout">
+                    <!-- 左侧逻辑描述区 -->
+                    <div class="bfs-logic-panel">
+                        <div class="bfs-info-card">
+                            <h4><i class="fas fa-bullseye"></i> 目标模式串</h4>
+                            <div>
+                                <span class="bfs-pattern-tag">sh</span>
+                                <span class="bfs-pattern-tag">she</span>
+                                <span class="bfs-pattern-tag">his</span>
+                                <span class="bfs-pattern-tag">he</span>
+                            </div>
+                        </div>
+                        <div class="bfs-info-card" style="border-left: 5px solid var(--primary);">
+                            <h4><i class="fas fa-layer-group"></i> BFS 逐层构建</h4>
+                            <p>1. <b>第一层节点</b>：根节点的直接子节点，其 Fail 指针全部指向 <span style="color:var(--primary)">Root</span></p>
+                            <p>2. <b>计算顺序</b>：通过队列确保节点 u 的父级 Fail 已提前算好</p>
+                        </div>
+                        <div class="bfs-info-card" style="border-left: 5px solid var(--cyber-cyan);">
+                            <h4><i class="fas fa-code-branch"></i> 失配转移逻辑</h4>
+                            <p>设父节点为 p，子节点为 u (边为 c)：</p>
+                            <li style="margin-left:10px;">• 检查 <span class="bfs-code-inline">fail[p]</span> 是否有字符 c 的子节点</li>
+                            <li style="margin-left:10px;">• <b>若有</b>：<span class="bfs-code-inline">fail[u] = next[fail[p]][c]</span></li>
+                        </div>
+                        <div class="bfs-info-card" style="background: rgba(255,215,0,0.05);">
+                            <h4><i class="fas fa-lightbulb"></i> 预处理</h4>
+                            <p>若节点无对应分支，则next指向<strong> Fail的对应分支</strong></p>
+                        </div>
+                    </div>
+
+                    <!-- 右侧可视化演练区 -->
+                    <div class="bfs-viz-panel">
+                        <div class="bfs-canvas-container" id="ac-bfs-canvas">
+                            <svg id="ac-bfs-svg" style="position:absolute; width:100%; height:100%; pointer-events:none; top:0; left:0;">
+                                <defs>
+                                    <marker id="bfs-arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                                        <polygon points="0 0, 8 3, 0 6" fill="var(--cyber-cyan)" />
+                                    </marker>
+                                </defs>
+                            </svg>
+                        </div>
+                        <div class="bfs-viz-controls">
+                            <div id="ac-bfs-queue">Q: []</div>
+                            <div class="bfs-step-desc" id="ac-bfs-msg">准备就绪。点击按钮开始 BFS 构建过程。</div>
+                            <button class="bfs-btn-next" id="ac-bfs-btn" onclick="triggerAcBfsStep()">开始演示</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">18 / 27</div>
+        </div>
+
+        <!-- Slide 19: AC自动机失配指针构建函数 -->
+        <div class="slide-container next-enter" id="slide-19">
+            <h2 class="slide-title">AC 自动机：失配指针构建<span>build_fail()</span></h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 38% 58%; gap: 4%; align-items: center;">
+                    
+                    <!-- 左侧：描述文字 -->
+                    <div class="desc-box">
+                        <div class="desc-text">
+                            <p>在构建Trie的基础上，算法进一步通过 <strong>build_fail</strong> 函数建立每个节点的 <strong>fail 指针</strong></p>
+                            <p>fail 指针指向当前节点匹配失败时<strong>最长可匹配前缀节点</strong>，实现失配快速跳转，避免重复回溯，提高匹配效率</p>
+                            <p>该过程采用 <strong>BFS 遍历</strong> Trie节点，并根据父节点的 fail 指针确定子节点的 fail 指向，保证整个 AC 自动机正确连接</p>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：代码实现 (严格按照提供内容) -->
+                    <div class="code-window">
+<pre>
+<span class="kw">void</span> <span class="fn">build_fail</span>(){
+    <span class="type">queue</span>&lt;<span class="kw">int</span>&gt; q;
+    <span class="kw">for</span>(<span class="kw">int</span> i=<span class="num">0</span>;i&lt;<span class="num">100</span>;i++){
+        <span class="kw">if</span>(trie_AC[<span class="num">0</span>].next[i]){
+            trie_AC[trie_AC[<span class="num">0</span>].next[i]].fail=<span class="num">0</span>;
+            <span class="cm">//根节点的失配指针指向自己</span>
+            q.<span class="fn">push</span>(trie_AC[<span class="num">0</span>].next[i]);
+        }
+    }
+    <span class="kw">while</span>(!q.<span class="fn">empty</span>()){  <span class="cm">//BFS构建失配指针</span>
+        <span class="kw">int</span> u=q.<span class="fn">front</span>();
+        q.<span class="fn">pop</span>();
+        <span class="kw">for</span>(<span class="kw">int</span> i=<span class="num">0</span>;i&lt;<span class="num">100</span>;i++){  <span class="cm">//枚举所有字节点 </span>
+            <span class="kw">if</span>(!trie_AC[u].next[i]){
+                trie_AC[u].next[i]=trie_AC[trie_AC[u].fail].next[i];
+                <span class="cm">//如果没有这个分支，就指向失配指针的对应分支</span>
+                <span class="kw">continue</span>;
+            }
+            trie_AC[trie_AC[u].next[i]].fail=trie_AC[trie_AC[u].fail].next[i]; 
+            <span class="cm">//有这个分支，就指向失配指针的对应分支</span>
+            <span class="cm">//子节点的fail指针指向当前节点fail指针指向的节点的第i个分支</span>
+            q.<span class="fn">push</span>(trie_AC[u].next[i]);
+        }
+    }
+}
+</pre>
+                    </div>
+
+                </div>
+            </div>
+            <div class="progress-bar">19 / 27</div>
+        </div> 
+        
+        <!-- Slide 20: AC 自动机匹配演示 -->
+        <div class="slide-container next-enter" id="slide-20">
+            <h2 class="flow-match-title">AC 自动机：匹配步骤解析<span>Text: "ushishe"</span></h2>
+            
+            <div class="flow-content-area">
+                <div class="flow-main-layout">
+                    <div class="flow-logic-panel">
+                    <!-- 模式串卡片 -->
+                        <div class="match-info-card">
+                            <div class="pattern-header-inline">
+                                <h4><i class="fas fa-search"></i> 模式串</h4>
+                                <div class="pattern-tags-container">
+                                    <span class="match-pattern-tag">sh</span>
+                                    <span class="match-pattern-tag">she</span>
+                                    <span class="match-pattern-tag">he</span>
+                                    <span class="match-pattern-tag">his</span>
+                                </div>
+                            </div>
+                        </div>
+                    
+                        <!-- 逻辑卡片 -->
+                        <div class="match-info-card" style="border-left: 4px solid var(--accent);">
+                            <h4><i class="fas fa-code"></i> 匹配算法逻辑</h4>
+                            <p>1. <b>状态转移</b>：执行 <code>p = next[p][c]</code>，探查是否有当前边；同步检查其 <b>fail</b> 指针跳转，指向目标状态</p>
+                            <p>2. <b>后缀遍历</b>：令 <code>temp = p</code>，通过 <code>while(temp)</code> 沿着失配指针链向上爬升检查所有包含关系</p>
+                            <p>3. <b>命中检查</b>：若 <code>temp</code> 节点存在单词结尾，则记录为一次有效命中</p>
+                        </div>
+
+                        <!-- 命中记录：优化布局 -->
+                        <div id="results-log" class="match-info-card" style="flex-grow:1; background: rgba(255,107,107,0.05); overflow: hidden;">
+                            <h4 style="color:var(--danger)"><i class="fas fa-list-check"></i> 命中记录</h4>
+                            <div id="found-list"></div>
+                        </div>
+                    </div>
+
+                    <div class="flow-viz-panel">
+                        <div class="flow-scan-strip" id="flow-text-strip"></div>
+                        <div class="flow-canvas-container" id="flow-canvas">
+                            <svg id="flow-svg-fail" style="position:absolute; width:100%; height:100%; pointer-events:none; z-index:5;">
+                                <defs>
+                                    <marker id="flow-arrow-fail" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+                                        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--cyber-cyan)" />
+                                    </marker>
+                                    <marker id="flow-arrow-activated" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                                        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
+                                    </marker>
+                                </defs>
+                            </svg>
+                        </div>
+                        <div class="flow-viz-controls">
+                            <div class="flow-step-desc" id="flow-msg">准备开始匹配，观察代码如何驱动指针 <b>p</b> 在自动机中穿梭</div>
+                            <button class="flow-btn-next" id="flow-btn" onclick="nextFlowStep()">开始演示</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">20 / 27</div>
+        </div>
+
+        <!-- Slide 21: AC自动机匹配函数 -->
+        <div class="slide-container next-enter" id="slide-21">
+            <h2 class="slide-title">AC 自动机：匹配函数<span>AC_match()</span></h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 38% 58%; gap: 4%; align-items: start;">
+                    
+                    <div class="desc-box">
+                        <div class="desc-text" style="font-size: 22px;">
+                            <p>在<strong>文本处理阶段</strong>，程序逐行读取文本并按空格分词，每行 <span class="highlight-cyan">文本串 </span>作为独立单词进行匹配</p>
+                            <p>对于每个字符，算法通过 <span class="highlight-primary">next[c]</span> 沿 Trie 节点前进，若字符非法或分支不存在则回到根节点重新匹配</p>
+                            <p>若到达节点且 <span class="highlight-accent">out</span> 非空，则表示匹配成功；确保每行记录一次，共同统计词频，使用 <span class="highlight-cyan">siz</span> 进行判断，同时沿 <span class="highlight-primary">fail</span> 链向上查找重叠或嵌套单词</p>
+                            <div style="margin-top: 30px; padding: 20px; background: rgba(74, 185, 157, 0.05); border-left: 4px solid var(--primary); border-radius: 4px;">
+                                <p style="font-size: 22px; color: var(--text-dim); margin-bottom: 0;">
+                                    <strong>核心价值：</strong>通过前缀共享与失配跳转，实现一次扫描完成所有目标单词统计，极大提高大规模文本处理效率
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="code-window" style="max-height: 520px;">
+<pre><span class="kw">void</span> <span class="fn">AC_match</span>(<span class="type">string</span> &s,<span class="kw">int</span> line){
+    <span class="kw">int</span> p=<span class="num">0</span>;
+    <span class="kw">for</span>(<span class="kw">int</span> i=<span class="num">0</span>;i&lt;(<span class="kw">int</span>)s.<span class="fn">size</span>();i++){
+        <span class="kw">int</span> c=<span class="fn">getnum</span>(s[i]);
+        <span class="kw">if</span>(c==-<span class="num">1</span>){
+            p=<span class="num">0</span>;    <span class="cm">//非法字符重新匹配</span>
+            <span class="kw">continue</span>;
+        }
+        p=trie_AC[p].next[c];
+        <span class="kw">int</span> temp=p;
+        <span class="kw">while</span>(temp){  <span class="cm">//沿着失配指针向上找，看看有没有单词结尾</span>
+            <span class="kw">for</span>(<span class="kw">int</span> j=<span class="num">0</span>;j&lt;(<span class="kw">int</span>)trie_AC[temp].out.<span class="fn">size</span>();j++){
+                <span class="kw">int</span> id=trie_AC[temp].out[j];
+                <span class="kw">int</span> siz=pos[id].<span class="fn">size</span>();
+                <span class="kw">if</span>(!siz||pos[id][siz-<span class="num">1</span>].first!=line)
+                    pos[id].<span class="fn">push_back</span>({line,<span class="num">1</span>}); <span class="cm">//记录匹配位置，行号和单词在行中的位置</span>
+                <span class="kw">else if</span>(siz&amp;&amp;pos[id][siz-<span class="num">1</span>].first==line)
+                    pos[id][siz-<span class="num">1</span>].second++;
+                cnt[id]++;
+            }
+            temp=trie_AC[temp].fail; <span class="cm">//继续沿着失配指针向上找，看看还有没有其他单词结尾</span>
+        }
+    }
+}</pre>
+                    </div>
+
+                </div>
+            </div>
+            <div class="progress-bar">21 / 27</div>
+        </div>
+
+        <!-- Slide 22: AC 自动机算法分析 -->
+        <div class="slide-container next-enter" id="slide-22">
+            <h2 class="slide-title">AC 自动机算法分析<span>Complexity & Analysis</span></h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <div class="animate-item">
+                        <div class="summary-card">
+                            <h3>1. 复杂度分析</h3>
+                            <ul class="summary-list">
+                                <li><strong>时间复杂度：O(M + N + S)</strong><br>
+                                    <span style="font-size: 18px; color: var(--text-dim);">M 为模式串总长；N 为文本总长；S 为总匹配次数；每个字符仅需一次扫描，接近线性最优</span>
+                                </li>
+                                <li style="margin-top: 20px;"><strong>空间复杂度：O(M + S)</strong><br>
+                                    <span style="font-size: 18px; color: var(--text-dim);">Trie 节点数组与 Fail 指针存储空间与 M 线性相关；匹配结果 pos[M] 随总匹配次数 S 动态增长</span>
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(74, 185, 157, 0.1); border: 1px solid var(--primary); border-radius: 8px;">
+                                <p style="font-size: 19px;">相比 KMP 和 Trie 字典树，AC 自动机在大规模文本和多模式串（≥50个）匹配场景下优势巨大</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="animate-item delay-1">
+                        <div class="summary-card">
+                            <h3>2. 核心优缺点</h3>
+                            <ul class="summary-list">
+                                <li><strong>优势：</strong> 多模式匹配最优算法，一次扫描完成全部统计；支持嵌套、重叠单词匹配；Fail 指针显著避免了重复扫描</li>
+                                <li><strong>适用：</strong> 工业级文本处理、海量关键词过滤、以及对单次扫描效率有极致要求的文学研究场景</li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(255, 215, 0, 0.1); border: 1px solid var(--accent); border-radius: 8px;">
+                                <p style="font-size: 19px; color: var(--accent);">进阶方向：结合 Aho-Corasick 自动机与分词策略，构建高速文学分析系统</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">22 / 27</div>
+        </div>
+
+        <!-- Slide 23: 文本处理辅助程序（思想架构） - 模仿 Slide 6 比例 38:58 -->
+        <div class="slide-container next-enter" id="slide-23">
+            <h2 class="slide-title">文本处理辅助程序：思想架构<span>System Logic</span></h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 38% 58%; gap: 4%; align-items: center;">
+                    
+                    <!-- 左侧：描述文字 (模仿 Slide 6) -->
+                    <div class="desc-box">
+                        <div class="desc-text" style="font-size: 21px;">
+                            <p><strong>核心架构设计：</strong><br>程序依赖 <span class="highlight-cyan">unordered_map</span> 与 <span class="highlight-cyan">vector</span> 协同工作。哈希表确保 O(1) 的定位效率，向量则严格维护输入顺序，实现统计与输出的一致性</p>
+                            <p><strong>多维统计结构：</strong><br>通过 <code>WordRecord</code> 结构体，系统能够单次扫描同时记录总出现次数、行号序列及行内频次映射，避免了对海量文本的重复遍历</p>
+                            <p><strong>辅助处理机制：</strong><br>内置 <code>ContractionMap</code> 静态哈希表，支持缩写展开与连字符处理，保证复杂语义下的匹配精度</p>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：代码实现 (模仿 Slide 6) -->
+                    <div class="code-window">
+<pre style="font-size: 16px;">
+<span class="cm">// 基于哈希与向量的混合统计逻辑</span>
+<span class="kw">void</span> <span class="fn">ScanLine</span>(string &article_line, <span class="kw">int</span> line_number) {
+    <span class="kw">auto</span> words = Tokenizer::<span class="fn">ExtractWords</span>(article_line, case_sensitive_);
+    <span class="kw">for</span> (<span class="kw">const</span> string& word : words) {
+        <span class="kw">if</span> (target_words_.<span class="fn">find</span>(word) == target_words_.<span class="fn">end</span>()) <span class="kw">continue</span>;
+        
+        WordRecord& record = stats_[word];
+        record.total_count += <span class="num">1</span>;
+        
+        <span class="kw">int</span>& hits_on_line = record.line_count[line_number];
+        <span class="kw">if</span> (hits_on_line == <span class="num">0</span>) {
+            record.line_order.<span class="fn">push_back</span>(line_number);
+        }
+        hits_on_line += <span class="num">1</span>;
+    }
+}
+</pre>
+                    </div>
+
+                </div>
+            </div>
+            <div class="progress-bar">23 / 27</div>
+        </div>
+
+        <!-- Slide 24: 文本处理辅助程序（算法流程） - 模仿 Slide 5 比例 1:1.2 -->
+        <div class="slide-container next-enter" id="slide-24">
+            <h2 class="slide-title">文本处理辅助程序：执行流程<span>Algorithm Flow</span></h2>
+            <div class="content-area">
+                <div class="animate-item" style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 30px; align-items: start;">
+                    
+                    <!-- 左侧：描述块 (模仿 Slide 5) -->
+                    <div>
+                        <h4 style="color: var(--primary); font-size: 38px; margin-bottom: 25px;"><i class="fa-solid fa-list-check"></i> 主算法流程</h4>
+                        <p style="font-size: 24px; color: var(--text-main); line-height: 1.6; margin-bottom: 20px;">
+                            首先读取配置与关键词，通过 <code>Tokenizer</code> 进行规范化并存入哈希集合。随后逐行处理文本，对每个词元执行语义展开与去重统计
+                        </p>
+                        <h4 style="color: var(--primary); font-size: 34px; margin-bottom: 15px;"><i class="fa-solid fa-gauge-high"></i> 复杂度与效能分析</h4>
+                        <p style="font-size: 22px; color: var(--text-dim); line-height: 1.6;">
+                            <span class="highlight-accent">时间复杂度：</span> O(N+M+K) 每个字符仅扫描一次，哈希查找平均 O(1)，整体接近线性最优<br>
+                            <span class="highlight-accent">空间复杂度：</span> O(M+K+L) 内存占用随关键词数及匹配总数线性增长，空间利用率极高
+                        </p>
+                    </div>
+
+                    <!-- 右侧：代码展示 (模仿 Slide 5) -->
+                    <div class="code-window" style="margin-top: 10px;">
+<pre style="font-size: 15px;">
+<span class="cm">// 主执行流程：文件扫描与报告生成</span>
+<span class="kw">while</span> (<span class="fn">getline</span>(input, article_line)) {
+    assistant.<span class="fn">ScanLine</span>(article_line, line_number);
+    ++line_number;
+}
+
+<span class="kw">const auto</span> reports = assistant.<span class="fn">BuildReports</span>();
+<span class="kw">for</span> (<span class="kw">const auto</span>& report : reports) {
+    cout &lt;&lt; report.word &lt;&lt; <span class="str">'\t'</span> 
+         &lt;&lt; report.total_count &lt;&lt; <span class="str">'\t'</span>
+         &lt;&lt; <span class="fn">JoinInts</span>(report.lines) &lt;&lt; <span class="str">'\t'</span>
+         &lt;&lt; <span class="fn">JoinLineFrequency</span>(report.line_frequency) &lt;&lt; <span class="str">'\n'</span>;
+}
+</pre>
+                        <div style="margin-top: 15px; padding: 12px; background: rgba(74, 185, 157, 0.1); border-radius: 8px; border-left: 4px solid var(--primary); font-size: 18px; color: var(--text-main);">
+                            实现基于哈希结构的一次扫描统计，兼顾工业级处理效率与研究级统计准确性
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="progress-bar">24 / 27</div>
+        </div>
+
+        <!-- Slide 25: 文本处理辅助程序分析 -->
+        <div class="slide-container next-enter" id="slide-25">
+            <h2 class="slide-title">文本处理辅助程序分析<span>Complexity & Evaluation</span></h2>
+            <div class="content-area">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <!-- 左侧：复杂度分析 (模仿Slide 14) -->
+                    <div class="animate-item">
+                        <div class="summary-card">
+                            <h3>1. 复杂度分析</h3>
+                            <ul class="summary-list">
+                                <li><strong>时间复杂度：O(N + M + K)</strong><br>
+                                    <span style="font-size: 18px; color: var(--text-dim);">N为文本总字符数，M为关键词字符总数。分词展开、哈希映射统计均在一次线性扫描内完成</span>
+                                </li>
+                                <li style="margin-top: 20px;"><strong>空间复杂度：O(M + K + L)</strong><br>
+                                    <span style="font-size: 18px; color: var(--text-dim);">主要由关键词哈希集、统计映射表及单行最大长度(L)的分词缓存构成。空间利用率极高</span>
+                                </li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(74, 185, 157, 0.1); border: 1px solid var(--primary); border-radius: 8px;">
+                                <p style="font-size: 19px;">该实现实现了基于哈希结构的高效统计，整体复杂度接近线性，能从容应对海量文学文本处理</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 右侧：优缺点评价 (模仿Slide 14) -->
+                    <div class="animate-item delay-1">
+                        <div class="summary-card">
+                            <h3>2. 核心优缺点</h3>
+                            <ul class="summary-list">
+                                <li><strong>优势：</strong> 工程实用性最强；支持缩写展开、标点过滤与大小写处理；统计维度丰富（总频次、行号、频率），输出格式规范</li>
+                                <li><strong>局限：</strong> 功能依赖哈希表；仅限于精确关键词匹配，不具备复杂正则表达式或模糊搜索能力</li>
+                                <li><strong>适用：</strong> 真实文学著作量化研究、需要高鲁棒预处理功能及直接生成统计报告的场景</li>
+                            </ul>
+                            <div style="margin-top: 25px; padding: 15px; background: rgba(255, 107, 107, 0.1); border: 1px solid var(--danger); border-radius: 8px;">
+                                <p style="font-size: 19px; color: var(--accent);">优化方向：整合多模式匹配自动机 (AC) 以提升大规模词库下的并发匹配性能</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">25 / 27</div>
+        </div>
+
+        <!-- Slide 26: 算法方案横向对比 -->
+        <div class="slide-container next-enter" id="slide-26">
+            <h2 class="slide-title">算法方案总结与横向对比<span>Comparison Analysis</span></h2>
+            <div class="content-area" style="padding: 0 60px 40px 60px;">
+                <div class="animate-item" style="width: 100%;">            
+                    <!-- 使用标准表格布局，文本居中对齐 -->
+                    <table style="width: 100%; border-collapse: collapse; font-size: 18px; background: rgba(255,255,255,0.02); border-radius: 12px; overflow: hidden; table-layout: fixed;">
+                        <thead>
+                            <tr style="background: rgba(74, 185, 157, 0.15); color: var(--primary);">
+                                <th style="padding: 18px 10px; border-bottom: 2px solid var(--primary); text-align: center; width: 15%;">对比维度</th>
+                                <th style="padding: 18px 10px; border-bottom: 2px solid var(--primary); text-align: center;">KMP分行</th>
+                                <th style="padding: 18px 10px; border-bottom: 2px solid var(--primary); text-align: center;">KMP分词</th>
+                                <th style="padding: 18px 10px; border-bottom: 2px solid var(--primary); text-align: center;">Trie字典树</th>
+                                <th style="padding: 18px 10px; border-bottom: 2px solid var(--primary); text-align: center;">AC自动机</th>
+                                <th style="padding: 18px 10px; border-bottom: 2px solid var(--primary); text-align: center;">辅助程序</th>
+                            </tr>
+                        </thead>
+                        <tbody style="color: var(--text-dim);">
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--cyber-cyan); text-align: center; background: rgba(0, 255, 255, 0.03);">匹配精度</td>
+                                <td style="padding: 14px 5px; text-align: center;">低（子串误判）</td>
+                                <td style="padding: 14px 5px; text-align: center;">高（完整单词）</td>
+                                <td style="padding: 14px 5px; text-align: center;">高（完整单词）</td>
+                                <td style="padding: 14px 5px; text-align: center; color: var(--accent);">最高（完整 + 重叠）</td>
+                                <td style="padding: 14px 5px; text-align: center;">高（预处理 + 精确）</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.01);">
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--cyber-cyan); text-align: center; background: rgba(0, 255, 255, 0.03);">时间效率</td>
+                                <td style="padding: 14px 5px; text-align: center;">较低</td>
+                                <td style="padding: 14px 5px; text-align: center;">中等</td>
+                                <td style="padding: 14px 5px; text-align: center;">较高</td>
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--primary); text-align: center;">最高</td>
+                                <td style="padding: 14px 5px; text-align: center;">高</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.01);">
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--cyber-cyan); text-align: center; background: rgba(0, 255, 255, 0.03);">空间占用</td>
+                                <td style="padding: 14px 5px; text-align: center;">最小</td>
+                                <td style="padding: 14px 5px; text-align: center;">小</td>
+                                <td style="padding: 14px 5px; text-align: center;">中等</td>
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--primary); text-align: center;">复杂</td>
+                                <td style="padding: 14px 5px; text-align: center;">较复杂</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--cyber-cyan); text-align: center; background: rgba(0, 255, 255, 0.03);">实现难度</td>
+                                <td style="padding: 14px 5px; color: var(--primary); text-align: center;">简单</td>
+                                <td style="padding: 14px 5px; text-align: center;">较简单</td>
+                                <td style="padding: 14px 5px; text-align: center;">中等</td>
+                                <td style="padding: 14px 5px; text-align: center;">复杂</td>
+                                <td style="padding: 14px 5px; text-align: center;">较复杂</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.01);">
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--cyber-cyan); text-align: center; background: rgba(0, 255, 255, 0.03);">定位能力</td>
+                                <td style="padding: 14px 5px; text-align: center;">行号 + 行内频次</td>
+                                <td style="padding: 14px 5px; text-align: center;">行号 + 单词序号</td>
+                                <td style="padding: 14px 5px; text-align: center;">行号 + 行内频次</td>
+                                <td style="padding: 14px 5px; text-align: center;">行号 + 行内频次</td>
+                                <td style="padding: 14px 5px; text-align: center;">行号 + 精确频次</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--cyber-cyan); text-align: center; background: rgba(0, 255, 255, 0.03);">多模式适配</td>
+                                <td style="padding: 14px 5px; text-align: center;">差</td>
+                                <td style="padding: 14px 5px; text-align: center;">一般</td>
+                                <td style="padding: 14px 5px; text-align: center;">好</td>
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--accent); text-align: center;">最好</td>
+                                <td style="padding: 14px 5px; text-align: center;">好</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--cyber-cyan); text-align: center; background: rgba(0, 255, 255, 0.03);">文本鲁棒性</td>
+                                <td style="padding: 14px 5px; text-align: center;">差</td>
+                                <td style="padding: 14px 5px; text-align: center;">一般</td>
+                                <td style="padding: 14px 5px; text-align: center;">一般</td>
+                                <td style="padding: 14px 5px; text-align: center;">一般</td>
+                                <td style="padding: 14px 5px; font-weight: 700; color: var(--primary); text-align: center;">最强</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div style="margin-top: 25px; padding: 15px; background: rgba(255, 215, 0, 0.05); border-left: 5px solid var(--accent); border-radius: 4px;">
+                        <p style="font-size: 18px; color: var(--text-main); margin: 0; text-align: center;">
+                            <strong>结论：</strong> 追求查询速度首选 <span class="highlight-cyan">AC自动机</span>；处理复杂文本格式首选 <span class="highlight-primary">文本辅助程序</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-bar">26 / 27</div>
+        </div>
+
+        <!-- Slide 27: 谢谢页 -->
+        <div class="slide-container next-enter" id="slide-27">
+            <div class="content-area" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center;">
+                
+                <!-- 装饰性图标 -->
+                <div class="animate-item" style="margin-bottom: 30px;">
+                    <div style="width: 100px; height: 100px; border: 2px solid var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative;">
+                        <i class="fas fa-code-branch" style="font-size: 40px; color: var(--cyber-cyan);"></i>
+                        <div style="position: absolute; width: 120%; height: 120%; border: 1px dashed var(--primary); border-radius: 50%; opacity: 0.3; animation: spin 10s linear infinite;"></div>
+                    </div>
+                </div>
+
+                <h1 class="animate-item" style="font-size: 72px; font-weight: 700; background: linear-gradient(135deg, var(--text-main) 30%, var(--primary)); background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px;">
+                    感谢观看
+                </h1>
+                
+                <p class="animate-item" style="font-size: 24px; color: var(--cyber-cyan); letter-spacing: 8px; margin-bottom: 50px; opacity: 0.8;">
+                    THANK YOU FOR WATCHING
+                </p>
+
+                <div class="animate-item" style="width: 200px; height: 2px; border-bottom: 2px solid var(--primary); margin-bottom: 40px;"></div>
+
+                <div class="animate-item" style="display: flex; gap: 40px; font-size: 18px; color: var(--text-dim);">
+                    <span><i class="fas fa-users" style="margin-right: 10px; color: var(--primary);"></i> 第10小组</span>
+                    <span><i class="fas fa-calendar-alt" style="margin-right: 10px; color: var(--primary);"></i> 2026.04</span>
+                </div>
+
+                <div class="animate-item" style="margin-top: 60px;">
+                    <p style="font-size: 24px; color: rgba(255, 255, 255, 0.655); font-family: 'JetBrains Mono';">
+                        张子馨、顾珺瑶、周钱宸
+                    </p>
+                </div>
+            </div>
+            <div class="progress-bar">27 / 27</div>
+        </div>
+    </div>
+
+
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 27;
+        let isPlaying = false;
+        //slide 4：KMP可视化
+        function changeSlide(dir) {
+            const nextSlide = currentSlide + dir;
+            if (nextSlide < 1 || nextSlide > totalSlides) return;
+            const curEl = document.getElementById(`slide-${currentSlide}`);
+            const nextEl = document.getElementById(`slide-${nextSlide}`);
+            if (dir > 0) {
+                curEl.classList.remove('active'); curEl.classList.add('prev-exit');
+                nextEl.classList.remove('next-enter'); nextEl.classList.add('active');
+            } else {
+                curEl.classList.remove('active'); curEl.classList.add('next-enter');
+                nextEl.classList.remove('prev-exit'); nextEl.classList.add('active');
+            }
+            currentSlide = nextSlide;
+            if (currentSlide === 4) setTimeout(runKmpViz, 1000);
+            // 如果进入第 21 页，初始化可视化
+            if (currentSlide === 21) initFlowUI();
+        }
+        async function runKmpViz() {
+            if (isPlaying) return;
+            isPlaying = true;
+            document.getElementById('play-btn').style.opacity = '0.5';
+            document.getElementById('play-btn').innerText = "演示进行中...";
+
+            const wrapper = document.getElementById('pattern-wrapper');
+            const pointer = document.getElementById('kmp-pointer');
+            const textCells = document.querySelectorAll('#text-row .cell');
+            const patternCells = document.querySelectorAll('.pattern-row .cell');
+            const status = document.getElementById('viz-status');
+
+            const reset = () => {
+                wrapper.style.transform = 'translateX(0)';
+                pointer.style.left = '50px';
+                textCells.forEach(c => c.className = 'cell');
+                patternCells.forEach(c => c.className = 'cell');
+                status.style.color = '#4AB99D';
+            };
+            
+            reset();
+            const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+            for(let i=0; i<3; i++) {
+                status.innerText = `[步进] 正在对比位置 ${i}... 字符 '${['A','B','A'][i]}' 匹配成功！`;
+                pointer.style.left = `${50 + i*58}px`;
+                textCells[i].classList.add('highlight');
+                patternCells[i].classList.add('highlight');
+                await delay(1200);
+            }
+
+            status.style.color = '#FF6B6B';
+            status.innerText = "[失配] 文本 'B' 与模式串 'C' 不相等！";
+            pointer.style.left = '224px';
+            textCells[3].classList.add('mismatch');
+            patternCells[3].classList.add('mismatch');
+            await delay(1800);
+
+            status.style.color = '#FFD700';
+            status.innerText = "[跳转] Next[2]=1  模式串右移 2 格对齐前缀...";
+            await delay(1500);
+
+            status.style.color = '#00FFFF';
+            status.innerText = "[完成] 跳转结束。文本指针保持不动继续对比";
+            wrapper.style.transform = 'translateX(116px)';
+            patternCells.forEach(c => c.classList.remove('mismatch', 'highlight'));
+            textCells[3].classList.remove('mismatch');
+            await delay(1500);
+
+            status.style.color = '#4AB99D';
+            status.innerText = "[继续] 比对文本 'B' 与模式串索引 1 的 'B'...";
+            textCells[3].classList.add('highlight');
+            patternCells[1].classList.add('highlight');
+            
+            await delay(2000);
+            status.innerText = "演示结束：KMP 成功避免了文本指针的回溯";
+            isPlaying = false;
+            document.getElementById('play-btn').style.opacity = '1';
+            document.getElementById('play-btn').innerText = "重播匹配逻辑";
+        }
+
+        //slide 11：Trie可视化
+        function initTrieEdges() {
+            const svg = document.getElementById('trie-svg');
+            const edges = [
+                ['node-root', 'node-h'], ['node-h', 'node-he'], ['node-h', 'node-hi'], 
+                ['node-hi', 'node-his'], ['node-root', 'node-s'], ['node-s', 'node-sh'], 
+                ['node-sh', 'node-she']
+            ];
+            
+            // 清空旧线
+            svg.innerHTML = '';
+
+            edges.forEach(([from, to]) => {
+                const fEl = document.getElementById(from);
+                const tEl = document.getElementById(to);
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                
+                const x1 = fEl.offsetLeft + 32;
+                const y1 = fEl.offsetTop + 32;
+                const x2 = tEl.offsetLeft + 32;
+                const y2 = tEl.offsetTop + 32;
+
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', 'rgba(255,255,255,0.1)');
+                line.setAttribute('stroke-width', '2');
+                line.id = `edge-${from}-${to}`;
+                svg.appendChild(line);
+            });
+
+            // 标记 End 节点
+            document.getElementById('node-he').classList.add('is-end');
+            document.getElementById('node-his').classList.add('is-end');
+            document.getElementById('node-she').classList.add('is-end');
+        }
+        async function runTrieSearch() {
+            if (isPlaying) return;
+            isPlaying = true;
+            const btn = document.getElementById('play-trie-btn');
+            const statusTag = document.getElementById('trie-status-tag');
+            const statusText = document.getElementById('viz-status');
+            btn.style.opacity = '0.5';
+            btn.innerText = "演练进行中...";
+
+            const pathNodes = ['node-root', 'node-s', 'node-sh', 'node-she'];
+            const chars = ['[开始]', 'S', 'H', 'E'];
+            const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+            // Reset
+            document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('line').forEach(l => l.setAttribute('stroke', 'rgba(255,255,255,0.1)'));
+
+            for (let i = 0; i < pathNodes.length; i++) {
+                const node = document.getElementById(pathNodes[i]);
+                node.classList.add('active');
+                statusTag.innerText = `当前检索词元：SHE | 匹配字符: ${chars[i]}`;
+                statusText.innerText = `状态：正在访问路径 -> 节点 [${chars[i]}]`;
+                
+                if (i > 0) {
+                    const edge = document.getElementById(`edge-${pathNodes[i-1]}-${pathNodes[i]}`);
+                    if (edge) {
+                        edge.setAttribute('stroke', '#00FFFF');
+                        edge.setAttribute('stroke-width', '4');
+                    }
+                }
+                await delay(1000);
+            }
+
+            statusText.style.color = '#FFD700';
+            statusText.innerText = "检测成功！到达终止节点，匹配到模式 [SHE]";
+            statusTag.innerText = "匹配成功：SHE (ID: 2)";
+            
+            await delay(2000);
+            isPlaying = false;
+            btn.style.opacity = '1';
+            btn.innerText = "重新演练搜索";
+            statusText.style.color = '#FFFFFF';
+        }
+        function changeSlide(dir) {
+            const nextSlide = currentSlide + dir;
+            if (nextSlide < 1 || nextSlide > totalSlides) return;
+            const curEl = document.getElementById(`slide-${currentSlide}`);
+            const nextEl = document.getElementById(`slide-${nextSlide}`);
+            
+            curEl.classList.remove('active'); curEl.classList.add(dir > 0 ? 'prev-exit' : 'next-enter');
+            nextEl.classList.remove(dir > 0 ? 'next-enter' : 'prev-exit'); nextEl.classList.add('active');
+            
+            currentSlide = nextSlide;
+            if (currentSlide === 11) setTimeout(initTrieEdges, 100);
+        }
+        
+
+        //slide 15：AC自动机可视化
+        // 节点定义：保留所有节点（0-9）
+        const X_OFFSET = 50;  // 整体右移
+        const NODE_SIZE = 60; // 节点放大到 60px (原 46px)
+        const NODE_RADIUS = NODE_SIZE / 2;
+        // 重新映射坐标：统一增加 X_OFFSET 并调整布局间距
+        const nodes = [
+            { id: 0, label: 'Root', x: 350 + X_OFFSET, y: 50 },
+            { id: 1, label: 's', x: 220 + X_OFFSET, y: 140, parent: 0 },
+            { id: 2, label: 'a', x: 120 + X_OFFSET, y: 240, parent: 1 },
+            { id: 3, label: 'y', x: 120 + X_OFFSET, y: 340, parent: 2, end: 'say' },
+            { id: 4, label: 'h', x: 300 + X_OFFSET, y: 240, parent: 1 },
+            { id: 5, label: 'e', x: 240 + X_OFFSET, y: 340, parent: 4, end: 'she' },
+            { id: 6, label: 'r', x: 360 + X_OFFSET, y: 340, parent: 4, end: 'shr' }, 
+            { id: 7, label: 'h', x: 480 + X_OFFSET, y: 140, parent: 0 },
+            { id: 8, label: 'e', x: 480 + X_OFFSET, y: 240, parent: 7 },
+            { id: 9, label: 'r', x: 480 + X_OFFSET, y: 340, parent: 8, end: 'her' } 
+        ];
+        // 失配指针配置：curve(水平偏移量), offsetY(垂直偏移量) 决定控制点位置
+        const failLinks = [
+            // 节点指向 Root 的大弧度紫色指针 (精确控制每一个的轨迹)
+            { from: 1, to: 0, toRoot: true, curve: -100, offsetY: 0, color: "var(--primary)" },
+            { from: 2, to: 0, toRoot: true, curve: -160, offsetY: -40, color: "var(--primary)" },
+            { from: 3, to: 0, toRoot: true, curve: -300, offsetY: -80, color: "var(--primary)" },
+            // 原有的中间节点跳转 (青色)
+            { from: 4, to: 7, toRoot: false, curve: 0, offsetY: -60, color: "var(--accent)" }, 
+            { from: 5, to: 8, toRoot: false, curve: 0, offsetY: -60, color: "var(--accent)" },
+            
+            { from: 6, to: 0, toRoot: true, curve: 60,   offsetY: -30, color: "var(--primary)" },
+            { from: 7, to: 0, toRoot: true, curve: 120,  offsetY: 0, color: "var(--primary)" },
+            { from: 8, to: 0, toRoot: true, curve: 220,  offsetY: -40, color: "var(--primary)" },
+            { from: 9, to: 0, toRoot: true, curve: 320,  offsetY: -80, color: "var(--primary)" }
+        ];
+        const searchText = "sherhsay";
+        const canvas = document.getElementById('ac-canvas');
+        const svg = document.getElementById('fail-svg');
+        const matchBar = document.getElementById('match-bar');
+        const statusMsg = document.getElementById('status-msg');
+        const matchBtn = document.getElementById('step-3');
+        let isPaused = false;
+        let resolvePause = null;
+        function initViz() {
+            matchBar.innerHTML = '';
+            searchText.split('').forEach((char, i) => {
+                const div = document.createElement('div');
+                div.className = 'char-box';
+                div.id = `char-${i}`;
+                div.innerText = char;
+                matchBar.appendChild(div);
+            });
+            nodes.forEach(node => {
+                if (node.id !== 0) {
+                    const p = nodes[node.parent];
+                    const edge = document.createElement('div');
+                    edge.className = 'ac-edge';
+                    edge.id = `edge-${node.id}`;
+                    const dx = node.x - p.x;
+                    const dy = node.y - p.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                    edge.style.width = dist + 'px';
+                    edge.style.left = p.x + 'px';
+                    edge.style.top = p.y + 'px';
+                    edge.style.transform = `rotate(${angle}deg)`;
+                    canvas.appendChild(edge);
+                }
+
+                const div = document.createElement('div');
+                div.className = 'ac-node';
+                div.id = `node-${node.id}`;
+                // 通过 JS 直接注入更大的宽高和位置偏移
+                div.style.width = NODE_SIZE + 'px';
+                div.style.height = NODE_SIZE + 'px';
+                div.style.left = (node.x - NODE_RADIUS) + 'px';
+                div.style.top = (node.y - NODE_RADIUS) + 'px';
+                div.style.fontSize = "24px"; // 字体也同步略微放大
+                div.innerText = node.label === 'Root' ? 'R' : node.label;
+                canvas.appendChild(div);
+            });
+        }
+        async function buildTrie() {
+            statusMsg.innerText = "构建 Trie 树中 ...";
+            document.getElementById('step-1').disabled = true;
+            for (let i = 0; i < nodes.length; i++) {
+                document.getElementById(`node-${i}`).classList.add('revealed');
+                if (i > 0) document.getElementById(`edge-${i}`).classList.add('revealed');
+                await new Promise(r => setTimeout(r, 800));
+            }
+            statusMsg.innerText = "Trie 构建完成。";
+            document.getElementById('step-2').disabled = false;
+        }
+        async function buildFail() {
+            document.getElementById('step-2').disabled = true;
+            document.getElementById('status-msg').innerText = "构建失配指针...";
+            
+            for (let link of failLinks) {
+                const n1 = nodes[link.from];
+                const n2 = nodes[link.to];
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                
+                // 计算贝塞尔曲线控制点：中点 + 自定义水平偏移 + 自定义垂直偏移
+                const cpX = (n1.x + n2.x) / 2 + link.curve;
+                const cpY = (n1.y + n2.y) / 2 + link.offsetY;
+                
+                const d = `M ${n1.x} ${n1.y} Q ${cpX} ${cpY} ${n2.x} ${n2.y}`;
+                
+                path.setAttribute("d", d);
+                path.setAttribute("class", "fail-link revealed");
+                path.setAttribute("stroke-width", "2.5");
+                path.setAttribute("stroke", link.color); 
+ 
+                svg.appendChild(path);
+                
+                const nodeEl = document.getElementById(`node-${link.from}`);
+                //nodeEl.style.borderColor = link.toRoot ? "var(--fail-to-root)" : "var(--cyber-cyan)";
+                const length = path.getTotalLength();
+                // 设置初始状态：全偏移（看不见）
+                path.style.strokeDasharray = link.toRoot ? "5,5" : "8,4"; 
+
+                path.style.transition = 'none';
+                const drawLength = length;
+                path.style.strokeDasharray = length;
+                path.style.strokeDashoffset = length;
+            
+                // 触发重绘
+                path.getBoundingClientRect();
+            
+                path.classList.add('revealed');
+                path.animate([
+                    { strokeDashoffset: length },
+                    { strokeDashoffset: 0 }
+                ], {
+                    duration: 800,
+                    easing: 'ease-out',
+                    fill: 'forwards'
+                });
+
+                // 动画结束后还原为原本的虚线样式
+                setTimeout(() => {
+                    path.style.strokeDasharray = link.toRoot ? "5,5" : "8,4";
+                    path.style.strokeDashoffset = "0";
+                }, 800);
+
+                await new Promise(r => currentAnimationTimeout = setTimeout(r, 1500));
+            }
+            
+            statusMsg.innerText = "Fail 指针构建完成。";
+            matchBtn.disabled = false;
+        }
+        async function startMatch() {
+            if (isPaused) {
+                isPaused = false;
+                matchBtn.innerText = "正在匹配...";
+                matchBtn.classList.remove('highlight');
+                if (resolvePause) resolvePause();
+                return;
+            }
+
+            statusMsg.innerText = "正在匹配: " + searchText;
+            matchBtn.disabled = true;
+
+            const matchSteps = [
+                { charIdx: 0, nodeId: 1, msg: "读取 's' -> 进入节点 1" },
+                { charIdx: 1, nodeId: 4, msg: "读取 'h' -> 进入节点 4" },
+                { charIdx: 2, nodeId: 5, msg: "读取 'e' -> 命中关键词 [she]!", hit: true },
+                { charIdx: -1, nodeId: 8, msg: "失配跳转 (沿 Fail 指向 'e')", isFail: true },
+                { charIdx: 3, nodeId: 9, msg: "读取 'r' -> 命中关键词 [her]!", hit: true },
+                { charIdx: 4, nodeId: 7, msg: "读取 'h' -> 匹配节点 7" },
+                { charIdx: 5, nodeId: 1, msg: "读取 's' -> 匹配节点 1" },
+                { charIdx: 6, nodeId: 2, msg: "读取 'a' -> 匹配节点 2" },
+                { charIdx: 7, nodeId: 3, msg: "读取 'y' -> 命中关键词 [say]!", hit: true }
+            ];
+
+            for (let step of matchSteps) {
+                document.querySelectorAll('.ac-node').forEach(n => n.classList.remove('active-ptr'));
+                if (step.charIdx !== -1) {
+                    document.querySelectorAll('.char-box').forEach(c => c.classList.remove('current'));
+                    document.getElementById(`char-${step.charIdx}`).classList.add('current');
+                }
+
+                const nodeEl = document.getElementById(`node-${step.nodeId}`);
+                nodeEl.classList.add('active-ptr');
+                
+                if (step.hit) {
+                    nodeEl.classList.add('match-hit');
+                    statusMsg.innerText = step.msg;
+                    statusMsg.style.color = "var(--accent)";
+                    
+                    isPaused = true;
+                    matchBtn.disabled = false;
+                    matchBtn.innerText = "点击继续";
+                    matchBtn.classList.add('highlight');
+                    
+                    await new Promise(r => { resolvePause = r; });
+                } else {
+                    statusMsg.innerText = step.msg;
+                    statusMsg.style.color = step.isFail ? "var(--cyber-cyan)" : "var(--primary)";
+                    await new Promise(r => currentAnimationTimeout = setTimeout(r, 1600));
+                }
+            }
+
+            statusMsg.innerText = "演示完毕";
+            statusMsg.style.color = "var(--primary)";
+            matchBtn.innerText = "匹配结束";
+            matchBtn.disabled = true;
+            matchBtn.classList.remove('highlight');
+        }
+        // 修改重置逻辑：不刷新页面，仅清理当前幻灯片内的元素状态
+        function resetVisualization() {
+            // 清理动画延时
+            clearTimeout(currentAnimationTimeout);
+            isPaused = false;
+            resolvePause = null;
+
+            // 清理 SVG 路径
+            svg.innerHTML = '';
+
+            // 清理节点和连线的 CSS 类
+            document.querySelectorAll('.ac-node').forEach(el => {
+                el.classList.remove('revealed', 'active-ptr', 'match-hit');
+                el.style.borderColor = "var(--primary)";
+            });
+            document.querySelectorAll('.ac-edge').forEach(el => {
+                el.classList.remove('revealed');
+            });
+            document.querySelectorAll('.char-box').forEach(el => {
+                el.classList.remove('current');
+            });
+
+            // 重置状态文本和按钮
+            statusMsg.innerText = "等待操作：1. 构建 Trie";
+            statusMsg.style.color = "var(--primary)";
+            document.getElementById('step-1').disabled = false;
+            document.getElementById('step-2').disabled = true;
+            matchBtn.disabled = true;
+            matchBtn.innerText = "3. 开始匹配";
+            matchBtn.classList.remove('highlight');
+        }
+        document.getElementById('step-1').onclick = buildTrie;
+        document.getElementById('step-2').onclick = buildFail;
+        matchBtn.onclick = startMatch;
+        document.getElementById('btn-reset').onclick = resetVisualization;
+        initViz();
+
+        //slide 18: AC 自动机 BFS 可视化核心逻辑
+        const AC_BFS_CONFIG = {
+            canvas: document.getElementById('ac-bfs-canvas'),
+            svg: document.getElementById('ac-bfs-svg'),
+            msgBox: document.getElementById('ac-bfs-msg'),
+            queueBox: document.getElementById('ac-bfs-queue'),
+            btn: document.getElementById('ac-bfs-btn'),
+            nodes: [
+                { id: 0, label: 'Root', x: 350, y: 50, isRoot: true },
+                { id: 1, char: 's', x: 200, y: 150, p: 0 },
+                { id: 2, char: 'h', x: 130, y: 280, p: 1 },
+                { id: 3, char: 'e', x: 130, y: 410, p: 2 },
+                { id: 4, char: 'h', x: 500, y: 150, p: 0 },
+                { id: 5, char: 'i', x: 450, y: 280, p: 4 },
+                { id: 6, char: 's', x: 450, y: 410, p: 5 },
+                { id: 7, char: 'e', x: 570, y: 280, p: 4 } 
+            ],
+            steps: [
+                { msg: "Root 的直接子节点 v1(s) 和 v4(h) 进入队列，Fail 指向 Root。", active: [0], queue: [1, 4], fails: [{f: 1, t: 0}, {f: 4, t: 0}] },
+                { msg: "队头 v1 出队，处理 v1(s) 的子节点 v2(h)。查看 v1 的失配指针为 fail[v1]=v0，发现 v0 有 'h' 分支指向 v4，匹配！fail[v2]=v4，v2 入队", active: [1], queue: [4, 2], fails: [{f: 2, t: 4}] },
+                { msg: "队头 v4 出队，处理 v4(h) 的子节点 v5(i)、v7(e)，查看fail[v4]=v0，发现v0均无对应分支，故v5、v7的fail均指向Root，v5、v7入队", active: [4], queue: [2, 5, 7], fails: [{f: 5, t: 0}, {f: 7, t: 0}] },
+                { msg: "队头 v2 出队，处理 v2(h) 的子节点 v3(e)，查看 v2 的失配指针为 fail[v2]=v4，发现 v4 有 'e' 分支指向 v7，匹配！fail[v3]=v7，v3 入队", active: [2], queue: [5, 7, 3], fails: [{f: 3, t: 7}] },
+                { msg: "队头 v5 出队，处理 v5(i) 的子节点 v6(s)，查看 v5 的失配指针为 fail[v5]=v0，发现 v0 有 's' 分支指向 v1。匹配！fail[v6]=v1，v6 入队", active: [5], queue: [7, 3, 6], fails: [{f: 6, t: 1}] },
+                { msg: "后续 v7、v3、v6 均无子节点，出队后无后续节点入队，此时队列为空，BFS 构建完成。所有失配指针已建立，支持多模式串并行查找。", active: [7, 3, 6], queue: [], done: true }
+            ]
+        };
+        let AC_BFS_STATE = { currentStep: -1, initialized: false };
+        function initAcBfsNodes() {
+            if (AC_BFS_STATE.initialized) return;
+            AC_BFS_CONFIG.nodes.forEach(n => {
+                const div = document.createElement('div');
+                div.className = `bfs-ac-node ${n.isRoot ? 'root' : ''}`;
+                div.id = `ac-node-${n.id}`;
+                div.innerHTML = n.isRoot ? '<i class="fas fa-home" style="font-size:20px;"></i>' : n.char;
+                const idx = document.createElement('div');
+                idx.className = 'bfs-node-index';
+                idx.innerText = `v${n.id}`;
+                div.appendChild(idx);
+                div.style.left = `${n.x - 30}px`; div.style.top = `${n.y - 30}px`;
+                AC_BFS_CONFIG.canvas.appendChild(div);
+
+                if (n.p !== undefined) {
+                    const p = AC_BFS_CONFIG.nodes[n.p];
+                    const edge = document.createElement('div');
+                    edge.className = 'bfs-ac-edge';
+                    const dx = n.x - p.x; const dy = n.y - p.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                    edge.style.width = `${dist}px`; edge.style.left = `${p.x}px`; edge.style.top = `${p.y}px`;
+                    edge.style.transform = `rotate(${angle}deg)`;
+                    AC_BFS_CONFIG.canvas.appendChild(edge);
+                    const lbl = document.createElement('div');
+                    lbl.className = 'bfs-edge-label';
+                    lbl.innerText = n.char;
+                    lbl.style.left = `${p.x + dx/2 - 10}px`; lbl.style.top = `${p.y + dy/2 - 14}px`;
+                    AC_BFS_CONFIG.canvas.appendChild(lbl);
+                }
+            });
+            AC_BFS_STATE.initialized = true;
+        }
+        function drawFailLine(fromId, toId) {
+            const n1 = AC_BFS_CONFIG.nodes[fromId]; 
+            const n2 = AC_BFS_CONFIG.nodes[toId];
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("class", "bfs-fail-path");
+            path.setAttribute("marker-end", "url(#bfs-arrowhead)");
+            const midX = (n1.x + n2.x) / 2;
+            const midY = (n1.y + n2.y) / 2;
+            const dx = n2.x - n1.x;
+            const dy = n2.y - n1.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const offset = 40;
+            const nx = -dy / dist;
+            const ny = dx / dist;
+            const cx = midX + nx * offset;
+            const cy = midY + ny * offset;
+
+            path.setAttribute("d", `M ${n1.x} ${n1.y} Q ${cx} ${cy} ${n2.x} ${n2.y}`);
+            AC_BFS_CONFIG.svg.appendChild(path);
+            
+            const len = path.getTotalLength();
+            path.style.strokeDasharray = len;
+            path.style.strokeDashoffset = len;
+            path.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 600, fill: 'forwards' });
+        }
+        function triggerAcBfsStep() {
+            if (!AC_BFS_STATE.initialized) initAcBfsNodes();
+            AC_BFS_STATE.currentStep++;  
+            if (AC_BFS_STATE.currentStep >= AC_BFS_CONFIG.steps.length) {
+                AC_BFS_STATE.currentStep = -1;
+                AC_BFS_CONFIG.svg.innerHTML = '<defs><marker id="bfs-arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--cyber-cyan)" /></marker></defs>';
+                document.querySelectorAll('.bfs-ac-node').forEach(el => el.classList.remove('active', 'fail-point'));
+                AC_BFS_CONFIG.msgBox.innerText = "已重置。准备就绪。";
+                AC_BFS_CONFIG.queueBox.innerText = "Q: []";
+                AC_BFS_CONFIG.btn.innerText = "开始演示";
+                return;
+            }
+            const step = AC_BFS_CONFIG.steps[AC_BFS_STATE.currentStep];
+            AC_BFS_CONFIG.msgBox.innerText = step.msg;
+            AC_BFS_CONFIG.queueBox.innerText = `Q: [${step.queue.map(id => 'v'+id).join(', ')}]`;
+            document.querySelectorAll('.bfs-ac-node').forEach(el => el.classList.remove('active'));
+            step.active.forEach(id => document.getElementById(`ac-node-${id}`).classList.add('active'));
+            if (step.fails) {
+                step.fails.forEach(f => {
+                    drawFailLine(f.f, f.t);
+                    document.getElementById(`ac-node-${f.f}`).classList.add('fail-point');
+                });
+            }
+            AC_BFS_CONFIG.btn.innerText = step.done ? "重置演练" : "下一步";
+        }
+   
+        
+        // --- Slide 20: AC 匹配逻辑 (变量名已全部加 FLOW_ 前缀) ---
+        const FLOW_DATA = {
+            text: "ushishe",
+            nodes: [
+                { id: 0, label: 'R', x: 350, y: 55, root: true },
+                { id: 1, char: 's', x: 200, y: 155, p: 0, fail: 0 },
+                { id: 2, char: 'h', x: 150, y: 265, p: 1, word: 'sh', fail: 4 },
+                { id: 3, char: 'e', x: 150, y: 375, p: 2, word: 'she', fail: 7 },
+                { id: 4, char: 'h', x: 500, y: 155, p: 0, fail: 0 },
+                { id: 5, char: 'i', x: 440, y: 265, p: 4, fail: 0 },
+                { id: 6, char: 's', x: 440, y: 375, p: 5, word: 'his', fail: 1 },
+                { id: 7, char: 'e', x: 560, y: 265, p: 4, word: 'he', fail: 0 }
+            ],
+            failPaths: {
+                "1-0": -40, "2-4": 50, "3-7": 60, "4-0": 40, "5-0": 70, "6-1": 100, "7-0": 50
+            },
+            steps: [
+                { charIdx: 0, nodeId: 0, msg: "<b>读取 'u'：</b>执行 <code>p = next[0]['u']</code>，因根节点无 'u' 边，<br>next[0]['u']=0，此时<b>p</b> 保持为 0" },
+                { charIdx: 1, nodeId: 1, msg: "<b>读取 's'：</b>执行 <code>p = next[0]['s']</code>，跟节点存在 's' 边，指针 <b>p</b> 成功转移至 <b>v1(s)</b>；检查其 <b>out</b> 列表，无命中；溯源检查当前节点及其 Fail 链上的所有节点，无其他模式串命中" },
+                { charIdx: 2, nodeId: 2, msg: "<b>读取 'h'：</b>执行 <code>p = next[1]['h']</code>，v1(s) 存在 'h' 边，指针 <b>p</b> 到达 <b>v2(h)</b>，发现其 <b>out</b> 列表存在模式串 <span class='flow-highlight-text'>\"sh\"</span>，记录命中；溯源检查当前节点及其 Fail 链上的所有节点，无其他模式串命中", foundNode: 2, foundWord: "sh" },
+                { charIdx: 3, nodeId: 4, msg: "<b>读取 'i'：</b>执行 <code>p = next[2]['i']</code>，v2(h) 无 'i' 边，<br>但其 <b>Fail指针</b> v4(h) 存在 'i' 边，则 <b>p</b> 自动通过预处理的<br> <code>next[2]['i']=fail[2].next['i']=5</code>，跳转至 <b>v5(i)</b>", isFailJump: "2-4" },
+                { charIdx: 3, nodeId: 5, msg: "<b>在 v5(i) 处成功匹配 'i'：</b>指针 <b>p</b> 到达 <b>v5(i)</b>；检查其 <b>out</b> 列表，无命中；溯源检查当前节点及其 Fail 链上的所有节点，无其他模式串命中" },
+                { charIdx: 4, nodeId: 6, msg: "<b>读取 's'：</b>执行 <code>p = next[5]['s']</code>，v5(i) 存在 's' 边，指针 <b>p</b> 到达 <b>v6(s)</b>，此时命中模式串 <span class='flow-highlight-text'>\"his\"</span>；溯源检查当前节点及其 Fail 链上的所有节点，无其他模式串命中", foundNode: 6, foundWord: "his" },
+                { charIdx: 5, nodeId: 1, msg: "<b>读取 'h'：</b>执行 <code>p = next[6]['h']</code>，v6(s) 无 'h' 边，<br>但其 <b>Fail指针</b> v1(s) 存在 'h' 边，则 <b>p</b> 自动通过预处理的<br> <code>next[6]['h']=fail[6].next['h']=2</code>，跳转至 <b>v2(h)</b>", isFailJump: "6-1" },
+                { charIdx: 5, nodeId: 2, msg: "<b>在 v2(h) 处成功匹配 'h'：</b>指针 <b>p</b> 到达 <b>v2(h)</b>，检查其 <b>out</b> 列表，再次命中模式串 <span class='flow-highlight-text'>\"sh\"</span>；溯源检查当前节点及其 Fail 链上的所有节点，无其他模式串命中", foundNode: 2, foundWord: "sh" },
+                { charIdx: 6, nodeId: 3, msg: "<b>读取 'e'：</b>执行 <code>p = next[2]['e']</code>，因 v2(h) 存在 'e' 边，此时指针 <b>p</b> 到达 <b>v3(e)</b>，命中 <span class='flow-highlight-text'>\"she\"</span>；溯源检查当前节点及其 Fail 链上的所有节点", foundNode: 3, foundWord: "she" },
+                { charIdx: 6, nodeId: 7, msg: "<b>后缀溯源：</b>溯源检查 Fail 链，在 v3(e) 处沿着失配链 <br><code>temp = fail[temp]</code> 到达 <b>v7(e)</b>，发现其包含 <span class='flow-highlight-text'>\"he\"</span>，命中模式串", foundNode: 7, foundWord: "he", isFailJump: "3-7" },
+                { msg: "<b>演示完成：</b>所有字符已处理完毕，AC 自动机通过失配状态转移，保证了每个文本字符只被处理一次", done: true }
+            ]
+        };
+        let flowCurrentStepIdx = -1;
+        const flowMatchedNodes = new Set();
+        const flowFailPathMap = new Map();
+        function initFlowUI() {
+            const strip = document.getElementById('flow-text-strip');
+            if (strip.children.length > 0) return; // 避免重复初始化
+
+            Array.from(FLOW_DATA.text).forEach((c, i) => {
+                const div = document.createElement('div');
+                div.className = 'flow-scan-char';
+                div.id = `flow-char-${i}`;
+                div.innerText = c;
+                strip.appendChild(div);
+            });
+
+            const canvas = document.getElementById('flow-canvas');
+            FLOW_DATA.nodes.forEach(n => {
+                const div = document.createElement('div');
+                div.className = `flow-node ${n.root ? 'root' : ''}`;
+                div.id = `flow-node-${n.id}`;
+                div.style.left = `${n.x - 30}px`;
+                div.style.top = `${n.y - 30}px`;
+                div.innerHTML = n.root ? '<i class="fas fa-home" style="font-size:18px"></i>' : n.char;
+                
+                const label = document.createElement('div');
+                label.className = 'flow-node-id-label';
+                label.innerText = `v${n.id}`;
+                div.appendChild(label);
+                canvas.appendChild(div);
+
+                if (n.p !== undefined) {
+                    const parent = FLOW_DATA.nodes[n.p];
+                    const dx = n.x - parent.x;
+                    const dy = n.y - parent.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                    const edge = document.createElement('div');
+                    edge.className = 'flow-edge';
+                    edge.style.width = `${dist}px`;
+                    edge.style.left = `${parent.x}px`;
+                    edge.style.top = `${parent.y}px`;
+                    edge.style.transform = `rotate(${angle}deg)`;
+                    canvas.appendChild(edge);
+
+                    const elbl = document.createElement('div');
+                    elbl.className = 'flow-edge-label';
+                    elbl.innerText = n.char;
+                    elbl.style.left = `${parent.x + dx/2 - 8}px`;
+                    elbl.style.top = `${parent.y + dy/2 - 12}px`;
+                    canvas.appendChild(elbl);
+                }
+            });
+
+            const failSvg = document.getElementById('flow-svg-fail');
+            for (let key in FLOW_DATA.failPaths) {
+                const [f, t] = key.split('-').map(Number);
+                const path = createFlowFailPath(f, t, FLOW_DATA.failPaths[key]);
+                flowFailPathMap.set(key, path);
+                failSvg.appendChild(path);
+            }
+        }
+        function createFlowFailPath(fromId, toId, curveOffset) {
+            const from = FLOW_DATA.nodes[fromId];
+            const to = FLOW_DATA.nodes[toId];
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const midX = from.x + dx / 2;
+            const midY = from.y + dy / 2;
+            const nx = -dy;
+            const ny = dx;
+            const len = Math.sqrt(nx*nx + ny*ny);
+            const cp = { x: midX + (nx / len) * curveOffset, y: midY + (ny / len) * curveOffset };
+            
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("class", "flow-fail-path");
+            path.setAttribute("marker-end", "url(#flow-arrow-fail)");
+            path.setAttribute("d", `M ${from.x} ${from.y} Q ${cp.x} ${cp.y}, ${to.x} ${to.y}`);
+            return path;
+        }
+        function nextFlowStep() {
+            flowCurrentStepIdx++;
+            if (flowCurrentStepIdx >= FLOW_DATA.steps.length) {
+                // 重置
+                flowCurrentStepIdx = -1;
+                new Set();
+                flowMatchedNodes.clear();
+                document.getElementById('found-list').innerHTML = '';
+                document.querySelectorAll('.flow-scan-char').forEach(el => el.className = 'flow-scan-char');
+                document.querySelectorAll('.flow-node').forEach(el => el.classList.remove('active', 'found'));
+                document.querySelectorAll('.flow-fail-path').forEach(p => {
+                    p.classList.remove('activated');
+                    p.setAttribute("marker-end", "url(#flow-arrow-fail)");
+                });
+                document.getElementById('flow-msg').innerHTML = "已重置，准备开始";
+                document.getElementById('flow-btn').innerText = "开始演示";
+                return;
+            }
+
+            const step = FLOW_DATA.steps[flowCurrentStepIdx];
+            document.getElementById('flow-msg').innerHTML = step.msg;
+            document.getElementById('flow-btn').innerText = step.done ? "重新开始" : "下一步";
+
+            if (step.done){
+                initFlowUI();
+                document.getElementById('flow-msg').innerText = "重新开始演示";
+                return;
+            }
+
+            document.querySelectorAll('.flow-scan-char').forEach((el, i) => {
+                el.className = 'flow-scan-char';
+                if (i < step.charIdx) el.classList.add('passed');
+                if (i === step.charIdx) el.classList.add('active');
+            });
+
+            if (step.foundNode !== undefined) {
+                flowMatchedNodes.add(step.foundNode);
+                const log = document.getElementById('found-list');
+                const item = document.createElement('div');
+                item.className = 'found-item';
+                item.innerHTML = `<span style="color:var(--danger);margin-right:6px;">★</span>"${step.foundWord}" <span style="color:#666; font-size:11px;">v${step.foundNode}</span>`;
+                log.appendChild(item);
+            }
+            FLOW_DATA.nodes.forEach(n => {
+                const el = document.getElementById(`flow-node-${n.id}`);
+                el.classList.remove('active');
+                if (n.id === step.nodeId) el.classList.add('active');
+                if (flowMatchedNodes.has(n.id)) el.classList.add('found');
+            });
+
+            if (step.isFailJump) {
+                const path = flowFailPathMap.get(step.isFailJump);
+                if (path) {
+                    path.classList.add('activated');
+                    path.setAttribute("marker-end", "url(#flow-arrow-activated)");
+                }
+            }
+        }
+
+        window.onload = () => {
+            initAcBfsNodes();
+            initFlowUI();
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') changeSlide(1);
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+        });
+    </script>
+</body>
+</html>
