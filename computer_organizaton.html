@@ -1,0 +1,1903 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微程序控制器设计 (Slides 1-21)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+SC:wght@400;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4AB99D;      /* 薄荷绿 */
+            --bus-color: #00FFFF;   /* 赛博青 */
+            --bus-active: #4AB99D;  
+            --cyber-cyan: #00FFFF;  
+            --accent: #FFD700;      /* 强调金 */
+            --danger: #FF6B6B;      /* 危险红 */
+            --bg-dark: #1A1A1A;
+            --bg-black: #0F0F0F;
+            --text-main: #FFFFFF;
+            --text-dim: #CCCCCC;
+            --transition-speed: 0.6s;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: var(--bg-black); font-family: 'Noto Sans SC', sans-serif; color: var(--text-main); height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        .presentation-wrapper { width: 1280px; height: 720px; position: relative; perspective: 2000px; }
+        .slide-container { background-color: var(--bg-dark); width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; box-shadow: 0 30px 60px rgba(0,0,0,0.8); border-radius: 12px; opacity: 0; visibility: hidden; transform: scale(0.95) translateY(30px); transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1); z-index: 1; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; }
+        .slide-container.active { opacity: 1; visibility: visible; transform: scale(1) translateY(0); z-index: 2; }
+        /* 导航控制 */
+        .nav-zone { position: absolute; top: 0; height: 100%; width: 10%; z-index: 100; cursor: pointer; opacity: 0; transition: 0.3s; }
+        .nav-zone:hover { opacity: 0.1; background: white; }
+        .nav-zone.prev { left: 0; }
+        .nav-zone.next { right: 0; }
+        .progress-bar { position: absolute; bottom: 30px; left: 80px; z-index: 101; font-family: 'JetBrains Mono'; color: var(--primary); font-size: 18px; background: rgba(0,0,0,0.4); padding: 5px 20px; border-radius: 20px; border: 1px solid rgba(74, 185, 157, 0.2); }
+        /* 装饰 */
+        .slide-container::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 8px; background: var(--primary); z-index: 10; }
+        .slide-title { font-size: 52px; padding: 50px 80px 10px 80px; color: var(--text-main); font-weight: 700; }
+        .slide-title span { font-size: 20px; color: var(--primary); margin-left: 20px; font-family: 'JetBrains Mono'; font-weight: normal; vertical-align: middle;}
+        .content-area { flex-grow: 1; padding: 0 80px 80px 80px; display: flex; flex-direction: column; justify-content: center; position: relative; }
+        /* 动画库 */
+        @keyframes blurEntry { 0% { opacity: 0; filter: blur(12px); transform: translateY(30px); } 100% { opacity: 1; filter: blur(0); transform: translateY(0); } }
+        @keyframes wipeInLeft { from { clip-path: inset(0 100% 0 0); transform: translateX(-30px); opacity: 0; } to { clip-path: inset(0 0 0 0); transform: translateX(0); opacity: 1; } }
+        @keyframes dashLine { from { stroke-dashoffset: 500; } to { stroke-dashoffset: 0; } }
+        @keyframes emphasisPulse {0% { transform: scale(1); filter: brightness(1); }50% { transform: scale(1.05); filter: brightness(1.4); box-shadow: 0 0 30px var(--primary); }100% { transform: scale(1); filter: brightness(1); }}
+        @keyframes alertGlow { 0% { opacity: 0; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(0.5); } }
+        @keyframes rowGrowth { from { opacity: 0; transform: scaleY(0); transform-origin: top; } to { opacity: 1; transform: scaleY(1); } }
+        @keyframes bitFlash { 0%, 100% { background: var(--primary); } 50% { background: var(--bus-color); box-shadow: 0 0 20px var(--bus-color); } }
+        @keyframes lineGrow { from { height: 0; } to { height: 40px; } }
+        @keyframes pulseGlow { 0% { box-shadow: 0 0 5px var(--primary); transform: scale(1); } 50% { box-shadow: 0 0 25px var(--primary); transform: scale(1.02); } 100% { box-shadow: 0 0 5px var(--primary); transform: scale(1); } }
+        @keyframes signalActive { 0% { stroke-dashoffset: 100; opacity: 0.5; } 100% { stroke-dashoffset: 0; opacity: 1; } }
+
+        .active .anim-1 { animation: blurEntry 0.8s ease-out both 0.2s; }
+        .active .anim-2 { animation: blurEntry 0.8s ease-out both 0.4s; }
+        .active .anim-3 { animation: blurEntry 0.8s ease-out both 0.6s; }
+        .active .anim-4 { animation: blurEntry 0.8s ease-out both 0.8s; }
+        .active .anim-ladder { animation: wipeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .anim-path { stroke-dasharray: 500; stroke-dashoffset: 500; }
+        .active .anim-path { animation: dashLine 1.5s ease-out forwards 0.5s; }
+        /* P1 封面专用 */
+        .hero-bg { position: absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(135deg, rgba(26,26,26,0.95) 40%, rgba(74,185,157,0.1) 100%), url('https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1280&auto=format&fit=crop'); background-size: cover; z-index: -1; }
+        .hero-accent { position: absolute; top: 0; left: 0; width: 10px; height: 100%; background: var(--primary); box-shadow: 0 0 30px var(--primary); }
+        /* P2 目录卡片 */
+        .agenda-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
+        .agenda-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 30px 20px; border-radius: 12px; text-align: center; transition: 0.3s; }
+        .agenda-card i { font-size: 32px; color: var(--primary); margin-bottom: 20px; display: block; }
+        .agenda-card span { font-family: 'JetBrains Mono'; font-weight: bold; color: var(--primary); display: block; margin-bottom: 10px; }
+        /* 绑定强调动画给 P4 元素 (延迟从 2.2s 开始，即 anim-4 结束后) */
+        .active .emph-1 { animation: emphasisPulse 1s ease-in-out forwards 2.2s; }
+        .active .emph-2 { animation: emphasisPulse 1s ease-in-out forwards 3.0s; }
+        .active .emph-3 { animation: emphasisPulse 1s ease-in-out forwards 3.8s; }
+        .active .emph-4 { animation: emphasisPulse 1s ease-in-out forwards 4.6s; }
+        .active .emph-5 { animation: emphasisPulse 1s ease-in-out forwards 5.4s; }
+        /* P4 专属映射样式 */
+        .map-wrapper {display: flex;align-items: center;justify-content: flex-start;height: 400px;position: relative;}
+        .node-box {background: rgba(255, 255, 255, 0.05);border: 2px solid #444;padding: 15px;border-radius: 6px;width: 150px;text-align: center;font-weight: bold;flex-shrink: 0;position: relative;z-index: 10;}
+
+        .v-stack { display: flex; flex-direction: column; gap: 15px; z-index: 10; }
+        .seq-item { background: rgba(74, 185, 157, 0.1); border: 1px solid var(--primary); padding: 12px; border-radius: 4px; width: 160px; text-align: center; font-size: 16px; transition: 0.3s; }
+        .seq-item.dots { border: none; background: none; color: var(--primary); padding: 0; }
+        .sub-stack { display: flex; flex-direction: column; gap: 20px; z-index: 10; }
+        .sub-item { background: rgba(0, 255, 255, 0.05); border: 1px solid var(--cyber-cyan); padding: 10px; border-radius: 4px; width: 140px; text-align: center; font-size: 14px; transition: 0.3s; }
+        .connector-svg { overflow: visible; pointer-events: none; position: relative; z-index: 1; }
+
+        /* P5/P6 左右对比 */
+        .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+        .tech-card { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 40px; border-left: 6px solid var(--primary); position: relative; }
+        .tech-card::before { content: ''; position: absolute; top: 0; right: 0; width: 60px; height: 60px; background: linear-gradient(225deg, rgba(74,185,157,0.2) 0%, transparent 70%); border-radius: 0 16px 0 0; }
+        
+        /* Slide 4 专属嵌套布局样式 */
+        .map-wrapper {display: flex;align-items: center;justify-content: flex-start;height: 100%;padding-top: 20px;}
+        .main-node {background: rgba(255, 255, 255, 0.05);border: 2px solid #444;padding: 15px;border-radius: 6px;width: 150px;text-align: center;font-weight: bold;flex-shrink: 0;z-index: 2;}
+        .v-sequence {display: flex;flex-direction: column;gap: 12px;flex-shrink: 0;z-index: 2;}
+        .seq-node {background: rgba(74, 185, 157, 0.1);border: 1px solid var(--primary);padding: 12px;border-radius: 4px;width: 160px;text-align: center;font-size: 16px;}
+        .seq-node.dots { border: none; background: none; color: var(--primary); padding: 0; }
+        .sub-branch-wrap {display: flex;flex-direction: column;gap: 24px;flex-shrink: 0;z-index: 2;}
+        .sub-node {background: rgba(0, 255, 255, 0.05);border: 1px solid var(--cyber-cyan);padding: 10px;border-radius: 4px;width: 140px;text-align: center;font-size: 14px;}
+        .connector-svg { overflow: visible; pointer-events: none; z-index: 1; }
+
+        /* Slide 7 专用样式：撑满卡片且排版松弛 */
+        .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; height: 480px; padding-top: 30px; }
+        .comp-card { background: rgba(255,255,255,0.02); border-radius: 20px;border: 1px solid rgba(255,255,255,0.08); padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; /* 撑满上下空间 */position: relative; transition: 0.3s;}
+        .comp-card:hover { background: rgba(255,255,255,0.04); border-color: rgba(74,185,157,0.3); }
+        .comp-card h3 { font-size: 32px; letter-spacing: 4px; display: flex; align-items: center; gap: 15px; }
+        .comp-card h3 i { font-size: 28px; opacity: 0.8; }
+        
+        /* 波形图区域松弛化 */
+        .waveform-container { width: 100%; display: flex; flex-direction: column; gap: 35px; flex: 1; justify-content: center; }
+        .wave-row { display: flex; align-items: center; gap: 20px; }
+        .wave-label { font-family: 'JetBrains Mono'; font-size: 14px; width: 60px; color: var(--primary); font-weight: bold; }
+        .wave-svg { flex-grow: 1; height: 40px; filter: drop-shadow(0 0 5px rgba(74,185,157,0.3)); }
+
+        /* 相斥性示意图区域松弛化 */
+        .conflict-area { width: 100%; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 40px; }
+        .conflict-diagram { display: flex; align-items: center; justify-content: center; gap: 25px; width: 100%; }
+        .resource-box { width: 140px; height: 70px; border: 2px solid var(--danger); display: flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: bold; background: rgba(255, 107, 107, 0.1); font-size: 18px; position: relative; box-shadow: 0 0 20px rgba(255,107,107,0.1); }
+        .collision-bolt { position: absolute; color: var(--danger); font-size: 36px; animation: alertGlow 1s infinite; top: -45px; left: 50%; transform: translateX(-50%); text-shadow: 0 0 10px rgba(255,107,107,0.5); }
+        .sub-item-large { width: 100px; padding: 15px; background: rgba(255,255,255,0.05); border: 1px solid #555; border-radius: 6px; text-align: center; font-family: 'JetBrains Mono'; font-size: 16px; }
+
+        .card-desc { color: var(--text-dim); text-align: center; font-size: 18px; line-height: 1.8; margin-top: 10px; }
+        /* 相斥性区域 - 修复透明度 */
+        .conflict-area { width: 100%; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 40px; }
+        .conflict-diagram { display: flex; align-items: center; justify-content: center; gap: 25px; width: 100%; }
+        
+        .resource-box { width: 150px;  height: 80px; 
+            border: 3px solid var(--danger); display: flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 800; background: linear-gradient(145deg, #3a1515, #5e1a1a); font-size: 20px; position: relative;  color: #ffffff; box-shadow: 0 0 20px rgba(255, 77, 77, 0.4), inset 0 0 10px rgba(0,0,0,0.5);z-index: 5;
+        }
+        .collision-bolt { position: absolute;color: #ff0000;font-size: 42px;animation: alertGlow 1s infinite; top: -50px;left: 50%; transform: translateX(-50%); text-shadow: 0 0 15px rgba(255,0,0,0.8);}
+        .sub-item-large { width: 110px; padding: 15px; background: rgba(255,255,255,0.07); border: 2px solid #555; border-radius: 8px; text-align: center; font-family: 'JetBrains Mono'; font-size: 16px; }
+        .danger-border { border-color: var(--danger) !important; color: var(--danger); }
+        .waveform-container { width: 100%; display: flex; flex-direction: column; gap: 35px; flex: 1; justify-content: center; }
+        .wave-row { display: flex; align-items: center; gap: 20px; }
+        .wave-label { font-family: 'JetBrains Mono'; font-size: 14px; width: 60px; color: var(--primary); font-weight: bold; }
+        .wave-svg { flex-grow: 1; height: 40px; }
+        .card-desc { color: var(--text-dim); text-align: center; font-size: 18px; line-height: 1.8; margin-top: 10px; }
+        
+        /* Slide 8 数据通路专用动画 */
+        @keyframes cmdFlash { 0%, 100% { fill: #fff; transform: scale(1); opacity: 0.6; } 50% { fill: var(--primary); transform: scale(1.06); opacity: 1; filter: drop-shadow(0 0 8px var(--primary)); } }
+        @keyframes dataFlow { from { stroke-dashoffset: 100; opacity: 1; } to { stroke-dashoffset: 0; opacity: 1; } }
+        @keyframes feedbackFlow { from { stroke-dashoffset: 1200; opacity: 1; } to { stroke-dashoffset: 0; opacity: 1; } }
+        @keyframes aluPulse { 0%, 100% { transform: scale(1); stroke-width: 3; } 50% { transform: scale(1.02); stroke-width: 5; filter: brightness(1.2); } }
+        @keyframes regFillColor { 0% { fill: rgba(40,40,40,0.8); } 100% { fill: var(--primary); stroke: #fff; filter: drop-shadow(0 0 15px var(--primary)); } }
+
+
+        .st-line { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 2; }
+        .st-node { fill: rgba(40,40,40,0.8); stroke: #555; stroke-width: 2; transition: 0.3s; }
+        .st-alu { fill: rgba(30,30,30,0.9); stroke: var(--primary); stroke-width: 3; transform-origin: center; }
+        .st-text { fill: #fff; font-family: 'JetBrains Mono'; font-size: 16px; font-weight: bold; pointer-events: none; }
+        .st-cmd-text { fill: #fff; font-family: 'JetBrains Mono'; font-size: 16px; font-weight: 900; opacity: 0.5; transform-origin: center; }
+        
+        .flow-path { fill: none; stroke: var(--primary); stroke-width: 3; stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; }
+        .feedback-path { fill: none; stroke: var(--primary); stroke-width: 3; stroke-dasharray: 1200; stroke-dashoffset: 1200; opacity: 0; }
+
+        /* Slide 8 专用动画样式 */
+        .flow-path { fill: none; stroke: var(--primary); stroke-width: 3; stroke-dasharray: 200; stroke-dashoffset: 200; opacity: 0; }
+        .feedback-path { fill: none; stroke: var(--primary); stroke-width: 3; stroke-dasharray: 1200; stroke-dashoffset: 1200; opacity: 0; }
+        .st-line-static { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 1.5; stroke-dasharray: 4; }
+
+        .active .anim-cmd-active { animation: cmdFlash 1s ease-in-out infinite; }
+        .active .anim-flow { animation: dataFlow 1.5s ease-out forwards; }
+        .active .anim-fb { animation: feedbackFlow 2s linear forwards; }
+        .active .anim-alu { animation: aluPulse 2s ease-in-out infinite; }
+        .active .anim-reg-mint { animation: regFillColor 0.5s ease-out forwards; }
+         
+        /* 动画元素 */
+        .anim-cmd-active { fill: var(--primary); animation: glow 1s infinite alternate; }
+        @keyframes glow { from { opacity: 0.4; filter: drop-shadow(0 0 2px var(--primary)); } to { opacity: 1; filter: drop-shadow(0 0 10px var(--primary)); } }
+        .flow-path { fill: none; stroke: var(--primary); stroke-width: 3; stroke-dasharray: 1000; stroke-dashoffset: 1000; opacity: 0; }
+        .feedback-path { fill: none; stroke: var(--primary); stroke-width: 3; stroke-dasharray: 1500; stroke-dashoffset: 1500; opacity: 0; }
+        .anim-flow { animation: dataFlow 1.5s ease-out forwards; }
+        .anim-fb { animation: dataFlow 2s linear forwards; }
+        @keyframes dataFlow { to { stroke-dashoffset: 0; opacity: 1; } }
+        .anim-reg-mint { animation: regFill 0.5s forwards; }
+        @keyframes regFill { to { fill: rgba(74, 185, 157, 0.3); stroke: var(--primary); } }
+        .nav-controls { margin-top: 20px; display: flex; gap: 20px; }
+        
+        /* 通用组件卡片 */
+        .comp-card { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 30px; border: 1px solid rgba(255,255,255,0.08); transition: 0.3s; }
+        .comp-card:hover { background: rgba(255,255,255,0.06); border-color: var(--primary); }
+        .logic-panel { position: absolute; right: 50px; top: 120px; width: 320px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 25px; border-radius: 12px; border-left: 5px solid var(--primary); backdrop-filter: blur(10px); }
+        /* 定义入场动画 */
+        @keyframes stepFadeIn {from { opacity: 0; transform: translateX(20px); }to { opacity: 1; transform: translateX(0); }}
+        .logic-step { margin-bottom: 20px; opacity: 0; /* 初始透明 */}
+        .active .logic-step { animation: stepFadeIn 0.8s ease-out forwards; }
+
+        /* 设置每个步骤的延迟 */
+        .active .logic-step:nth-child(1) { animation-delay: 0.5s; }
+        .active .logic-step:nth-child(2) { animation-delay: 2.0s; }
+        .active .logic-step:nth-child(3) { animation-delay: 4.5s; }
+        .resource-box { width: 140px; height: 70px; border: 3px solid var(--danger); display: flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: bold; background: rgba(255, 107, 107, 0.15); font-size: 18px; color: #fff; }
+    
+        /* P9 专用：3D 指令条 */
+        .ins-bar-3d { display: flex; width: 100%; height: 80px; background: #333; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: rotateX(20deg); }
+        .part-op { width: 70%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--bg-black); border-right: 2px solid rgba(0,0,0,0.2); }
+        .part-seq { width: 30%; background: var(--bus-color); display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--bg-black); }
+
+        /* P10 专用：直接编码位图 */
+        .bit-row { display: flex; gap: 20px; justify-content: center; }
+        .bit-cell { width: 75px; height: 90px; background: rgba(74, 185, 157, 0.2); border: 3px solid var(--primary); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono'; font-weight: bold; }
+        .bit-cell.active { background: var(--primary); color: var(--bg-black); }
+        .hw-icon { width: 120px; height: 100px; border: 4px solid #444; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 14px; background: rgba(255,255,255,0.02); }
+
+        /* P11 专用：修改后的硬件逻辑图样式 */
+        .instruction-reg { display: flex; width: 100%; height: 60px; border-radius: 4px; overflow: hidden; margin-bottom: 40px; border: 2px solid #444; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .reg-field { display: flex; align-items: center; justify-content: center; font-weight: bold; font-family: 'JetBrains Mono'; font-size: 18px; color: #fff; }
+        .field-a { width: 25%; background: var(--primary); color: #000; }
+        .field-b { width: 35%; background: var(--bus-color); color: #000; }
+        .field-addr { width: 40%; background: #444; color: #888; }
+        
+        .decoder-trapezoid { width: 160px; height: 60px; background: rgba(74,185,157,0.1); border: 2px solid var(--primary); clip-path: polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%); display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--primary); font-size: 14px; }
+        .v-line { width: 2px; background: #666; height: 40px; }
+        .v-line.active { background: var(--primary); box-shadow: 0 0 10px var(--primary); }
+
+        .signal-grid { display: flex; gap: 10px; margin-top: 10px; }
+        .signal-line { width: 2px; height: 40px; background: #333; position: relative; }
+        .signal-line.active { background: #fff; box-shadow: 0 0 15px #fff; }
+        .signal-line.active::after { content: ''; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); width: 8px; height: 8px; background: #fff; border-radius: 50%; box-shadow: 0 0 10px #fff; }
+
+        .sidebar-logic { background: rgba(255,255,255,0.03); border-left: 4px solid var(--primary); padding: 25px; border-radius: 0 12px 12px 0; height: 100%; }
+        .sidebar-logic h4 { color: var(--primary); margin-bottom: 20px; font-size: 22px; }
+        .sidebar-logic p { font-size: 16px; color: var(--text-dim); margin-bottom: 25px; line-height: 1.6; }
+
+        /* P11 序列动画 */
+        .active #p11-step1 { animation: blurEntry 0.8s ease-out both 0.4s; }
+        .active #p11-step1 .field-a { animation: bitFlash 1.5s infinite alternate; }
+        .active #p11-step2 { animation: blurEntry 0.8s ease-out both 1.3s; }
+        .active #p11-step3 { animation: blurEntry 0.8s ease-out both 2.3s; }
+        .active #p11-step3 .signal-line.active { animation: pulseGlow 1s infinite; }
+        .active #p11-step4 { animation: blurEntry 0.8s ease-out both 3.5s; }
+
+        /* P12 专用：对比表 */
+        .comp-table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.02); }
+        .comp-table th { background: var(--primary); color: var(--bg-black); padding: 20px; text-align: left; }
+        .comp-table td { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .active .row-anim { animation: rowGrowth 0.5s ease-out both; }
+
+        
+        @keyframes fadeIn {from { opacity: 0; transform: translateY(10px); }to { opacity: 1; transform: translateY(0); }}
+        h2 { font-size: 42px; margin-bottom: 30px; border-left: 8px solid var(--primary); padding-left: 20px; color: #fff; }
+        h2 span { font-size: 20px; color: var(--primary); margin-left: 15px; font-weight: normal; opacity: 0.8; }
+
+        .content { flex: 1; display: flex; gap: 40px; align-items: center; }
+        .text-box { flex: 1; }
+        .visual-box { flex: 1.2; height: 100%; position: relative; }
+
+        /* Slide 13 Loop Animation */
+        .loop-svg { width: 100%; height: 100%; }
+        .path-static { fill: none; stroke: #333; stroke-width: 3; }
+        .path-anim { fill: none; stroke: var(--primary); stroke-width: 4; stroke-dasharray: 45, 55; stroke-linecap: round;filter: drop-shadow(0 5 40px var(--primary));animation: dashMove 10s linear infinite; }
+
+        @keyframes dashMove {to { stroke-dashoffset: -1000; }}
+        .node { fill: #222; stroke: #555; stroke-width: 2; }
+        .node-main { fill: rgba(74, 185, 157, 0.5); stroke: var(--primary); stroke-width: 3; }
+        .node-label { fill: #fff; font-size: 14px; text-anchor: middle; font-weight: bold; }
+        /* Components */
+        .info-card { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid var(--primary); }
+        .info-card h3 { color: var(--primary); margin-bottom: 10px; font-size: 20px; }
+        .info-card p { font-size: 16px; line-height: 1.6; color: var(--dim); }
+        /* 新增：元素进入动画 */
+        @keyframes slideInRight {from { opacity: 0; transform: translateX(30px); }to { opacity: 1; transform: translateX(0); }}
+        @keyframes slideInLeft {from { opacity: 0; transform: translateX(-30px); }to { opacity: 1; transform: translateX(0); }}
+        @keyframes scaleIn {from { opacity: 0; transform: scale(0.9); }to { opacity: 1; transform: scale(1); }}
+        /* 应用于 Slide 13 的特定动画类 */
+        #s13.active .info-card:nth-child(1) { animation: slideInLeft 0.6s ease-out 0.4s both; }
+        #s13.active .info-card:nth-child(2) { animation: slideInLeft 0.6s ease-out 1s both; }
+        #s13.active .visual-box { animation: scaleIn 1s ease-out 2s both; }
+
+        /* 让 SVG 内的硬件组件也有入场感 */
+        #s13.active .node, #s13.active .node-main { animation: fadeIn 1s ease-out both;}
+        /* Interaction specific */
+        .interactive-btn { background: #222; border: 1px solid #444; width: 100%; margin-bottom: 15px; text-align: left; padding: 15px; }
+        .interactive-btn.active { border-color: var(--primary); background: rgba(74,185,157,0.5); }
+        
+        /* 组件库 */
+        .card { background: rgba(255,255,255,0.03); border-radius: 12px; padding: 25px; border-left: 4px solid var(--primary); margin-bottom: 20px; }
+        .flex-box { display: flex; gap: 40px; align-items: center; height: 100%; }
+        /* SVG 动画专用 */
+        .loop-path { fill: none; stroke: var(--primary); stroke-width: 3; stroke-dasharray: 20, 80; stroke-linecap: round; filter: drop-shadow(0 0 5px var(--primary)); opacity: 0; }
+        .active .loop-path { opacity: 1; animation: flowLoop 8s linear infinite; }
+        @keyframes flowLoop { 0% { stroke-dashoffset: 1000; } 100% { stroke-dashoffset: 0; } }
+
+        /* Slide 14: 存储矩阵特有 */
+        .cm-matrix {display: flex;flex-direction: column;gap: 8px;padding: 15px;border-radius: 10px;border: 1px solid #525252;}
+        .cm-cell {background: #222;border: 1px solid #444;padding: 12px 20px;border-radius: 4px;display: flex;justify-content: space-between;align-items: center;font-family: 'JetBrains Mono', monospace;font-size: 16px;cursor: pointer;transition: 0.3s;position: relative;}
+        .cm-cell:hover {border-color: var(--primary);background: #2a2a2a;transform: scale(1.02);}
+        .cm-cell.highlight { border-left: 5px solid var(--primary); }
+        .cm-cell .binary-overlay {position: absolute; left: 0; top: 0; width: 100%; height: 100%;background: var(--primary); color: #000; font-weight: bold;display: flex; align-items: center; justify-content: center;opacity: 0; transition: 0.2s; border-radius: 4px;}
+        .cm-cell:hover .binary-overlay { opacity: 1; }
+        /* 确保 Slide 14 的元素初始不可见 */
+        #p14 .info-card, 
+        #p14 .cm-cell { opacity: 0; }
+
+        /* 绑定入场动画 */
+        #p14.active .info-card:nth-child(1) { animation: wipeInLeft 0.8s ease-out 0.4s forwards; }
+        #p14.active .info-card:nth-child(2) { animation: wipeInLeft 0.8s ease-out 0.7s forwards; }
+        #p14.active .info-card:nth-child(3) { animation: wipeInLeft 0.8s ease-out 1.0s forwards; }
+
+        /* 右侧矩阵单元格序列进入 */
+        #p14.active .cm-cell { animation: blurEntry 0.5s ease-out forwards; }
+        #p14.active .cm-cell:nth-child(1) { animation-delay: 1.2s; }
+        #p14.active .cm-cell:nth-child(2) { animation-delay: 1.4s; }
+        #p14.active .cm-cell:nth-child(3) { animation-delay: 1.6s; }
+        #p14.active .cm-cell:nth-child(4) { animation-delay: 1.8s; }
+        #p14.active .cm-cell:nth-child(5) { animation-delay: 2.0s; }
+        #p14.active .cm-cell:nth-child(6) { animation-delay: 2.2s; }
+        #p14.active .cm-cell:nth-child(7) { animation-delay: 2.4s; }
+        /* 修正卡片背景色，防止看起来“半透明” */
+        #p14 .info-card {background: rgba(255, 255, 255, 0.07); /* 提高不透明度 */backdrop-filter: blur(5px);opacity: 0; /* 由动画控制显现 */}
+        /* Slide 15: 下址切换特有 */
+        .logic-switch-panel {display: flex;flex-direction: column; gap: 35px;}
+        .switch-btn {padding: 18px;border-radius: 8px;border: 2px solid #444;background: transparent;color: var(--text-dim);cursor: pointer;text-align: left;transition: 0.3s;display: flex;align-items: center;gap: 35px;font-size: 16px;}
+        .switch-btn i { font-size: 20px; width: 24px; text-align: center; }
+        .switch-btn:hover { border-color: var(--primary); color: var(--text-main); }
+        .switch-btn.active { border-color: var(--primary); background: rgba(74, 185, 157, 0.1); color: var(--primary);box-shadow: 0 0 15px rgba(74, 185, 157, 0.2);}
+        .path-link { fill: none; stroke: #333; stroke-width: 3; transition: 0.5s; }
+        .path-link.active { stroke: var(--primary); filter: drop-shadow(0 0 5px var(--primary)); }
+        .path-link.flow { stroke-dasharray: 8, 8; animation: flowAnim 2s infinite linear; }
+        @keyframes flowAnim { to { stroke-dashoffset: -32; } }
+        /* --- Slide 15 专属动画逻辑 --- */
+        #p15 .info-card, #p15 .switch-btn{opacity: 0;}
+        /* 2. 左侧文本与按钮入场 */
+        #p15.active .info-card { animation: wipeInLeft 0.8s ease-out 0.3s forwards; }
+        #p15.active .switch-btn:nth-child(1) { animation: blurEntry 0.6s ease-out 1.2s forwards; }
+        #p15.active .switch-btn:nth-child(2) { animation: blurEntry 0.6s ease-out 1.5s forwards; }
+        /* 针对 Slide 15 的右侧容器进行缩放 */
+        #p15 .right-col {display: flex; align-items: center;justify-content: center; overflow: visible; /* 确保放大后的部分不会被裁切 */}
+        #p15 .svg-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;transform: scale(1.25); /* translateY(20px); */transform-origin: center center; transition: transform 0.5s ease;}
+        #p15 svg {max-width: 550px; /* 略微放宽原始限制 */overflow: visible;}
+        
+        .switch-btn.active {animation: pulseGlow 2s infinite ease-in-out;}
+        @keyframes fadeIn {from { opacity: 0; }to { opacity: 1; }}
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;}
+        .split_grid {
+            display: flex;
+            gap: 50px;
+            flex: 1;
+            align-items: stretch;}
+        .left-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;}
+        .concept-card {background: var(--card-bg);padding: 22px;border-radius: 12px;border: 1px solid var(--border);transition: var(--transition-main);} 
+        .concept-card:nth-child(1) { animation-delay: 0.3s; }
+        .concept-card:nth-child(2) { animation-delay: 0.4s; }
+        .concept-card:nth-child(3) { animation-delay: 0.5s; }
+        .concept-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: scale(1.02);}
+        .concept-card h3 {
+            font-size: 19px;
+            margin-bottom: 12px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;}
+        /* 右侧图示区 */
+        .right-col {
+            flex: 2; 
+            background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.2) 100%);
+            border-radius: 24px;
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border: 1px solid var(--border);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.3);
+            animation: fadeInUp 0.8s ease-out both;
+            animation-delay: 0.4s;}
+        .instruction-viz {
+            margin-bottom: 50px;
+            position: relative;}
+        .bit-strip {
+            display: flex;
+            height: 110px;
+            border: 2px solid #555;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+            position: relative;}
+        /* 扫描线效果 */
+        .bit-strip::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 50%; height: 100%;
+            background: linear-gradient(to right, transparent, rgba(74, 185, 157, 0.1), transparent);
+            animation: scanline 4s linear infinite;
+            pointer-events: none;}
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition-main);
+            position: relative;}
+        .field:hover { 
+            filter: brightness(1.3);
+            z-index: 5;}
+        .field.active { 
+            box-shadow: inset 0 0 0 4px rgba(255,255,255,0.4), 0 0 40px rgba(74, 185, 157, 0.5);
+            filter: brightness(1.2);
+            z-index: 10;
+            transform: scale(1.03);}
+        .field-label { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+        .field-range { font-size: 14px; opacity: 0.7; }
+        /* 字段颜色 */
+        .f-op { background: #2D5A50; flex: 18; border-right: 1px solid rgba(255,255,255,0.2); }
+        .f-test { background: #7A6935; flex: 2; border-right: 1px solid rgba(255,255,255,0.2); }
+        .f-addr { background: #35507A; flex: 4; }
+        /* 详情展示区动画 */
+        .detail-display {
+            background: rgba(255,255,255,0.03);
+            border-radius: 18px;
+            padding: 35px;
+            min-height: 200px;
+            border-left: 6px solid var(--accent);
+            position: relative;
+            transition: var(--transition-main);}
+        .detail-content-wrapper {transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);}
+        .detail-display h4 {
+            font-size: 26px;
+            color: var(--accent);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 15px;}
+        .detail-display h4 i {transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);}
+        .detail-display p {
+            font-size: 18px;
+            line-height: 1.8;
+            color: #E0E0E0;
+        }
+        .highlight-text { color: var(--primary); font-weight: bold; }
+        .hint-bar {
+            margin-top: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #666;
+            font-size: 14px;
+            animation: slideInLeft 0.6s ease-out both;
+            animation-delay: 0.6s;}
+        /* 切换时的隐藏状态 */
+        .hidden-state {opacity: 0;transform: translateX(20px);}
+            /* Left Column: Hardware Animation - Enlarged */
+        .hardware-column { position: relative; display: flex; flex-direction: column; align-items: center; gap: 42px; /* Increased gap */background: rgba(0,0,0,0);  padding: 50px; border-radius: 24px; border: 0px solid #333; height: 580px; /* Slightly taller */box-shadow: inset 0 0 30px rgba(0,0,0,0);}
+        /* Components Enlarged */
+        .component { 
+            width: 340px; /* Increased from 280px */
+            padding: 16px; 
+            border: 2px solid #444; 
+            border-radius: 12px; 
+            text-align: center; 
+            background: rgba(255,255,255,0.02); 
+            font-weight: 600; 
+            position: relative; 
+            z-index: 2; 
+            transition: all 0.4s ease; 
+            font-size: 18px; /* Larger text */
+        }
+        .component.active { border-color: var(--primary); background: rgba(74, 185, 157, 0.15); box-shadow: 0 0 25px rgba(74, 185, 157, 0.4); transform: scale(1.05); }
+        .uir-container { display: flex; width: 420px; padding: 0; overflow: hidden; border-width: 2px; }
+        .uir-part { flex: 1; padding: 15px 5px; font-size: 15px; }
+        .uir-part:first-child { border-right: 2px solid #444; }
+        .uir-part.next-addr { background: rgba(255, 215, 0, 0.05); color: var(--accent); }
+        .active .next-addr { background: rgba(255, 215, 0, 0.2); }
+
+        /* Loop Path Enlarged */
+        .loop-path { position: absolute; right: 10px; top: 205px; bottom: 75px; width: 110px;border: 3px dashed #444; border-left: none; border-radius: 0 50px 50px 0; display: flex; align-items: center; justify-content: center; transition: all 0.5s ease; opacity: 0; }
+        .loop-path.active { border-color: var(--accent); opacity: 1; }
+        .loop-label { transform: rotate(90deg); background: var(--bg-dark); padding: 8px 15px; color: var(--accent); font-size: 13px; font-weight: bold; }
+
+        /* Right Column: Info Cards */
+        .side-panel { display: flex; flex-direction: column; gap: 4px; }
+        .info-card { background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px; border-left: 4px solid #333; transition: all 0.3s ease; opacity: 0.5; }
+        .info-card.highlight { opacity: 1; border-left-color: var(--primary); background: rgba(255,255,255,0.06); transform: translateX(10px); }
+        .info-card h4 { margin: 0 0 6px 0; font-size: 18px; color: var(--primary); }
+        .info-card p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--text-dim); }
+
+        /* Animation Particle */
+        .particle { position: absolute; width: 14px; height: 14px; background: var(--primary); border-radius: 50%; filter: drop-shadow(0 0 10px var(--primary)); display: none; z-index: 10; pointer-events: none; left: 50%; transform: translateX(-50%); }
+
+        /* Navigation Controls */
+        .progress-bar { position: absolute; bottom: 30px; left: 80px; z-index: 101; font-family: 'JetBrains Mono'; color: var(--primary); font-size: 18px; }
+        .nav-zone { position: absolute; top: 0; height: 100%; width: 5%; z-index: 100; cursor: pointer; }
+        .nav-zone.prev { left: 0; }
+        .nav-zone.next { right: 0; }
+
+        /* Buttons */
+        .btn-group { display: flex; gap: 10px; margin-top: -2px; }
+        .btn-primary { flex: 2; background: var(--primary); color: #000; border: none; padding: 18px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 18px; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .btn-reset { flex: 1; background: #333; color: #fff; border: 1px solid #444; padding: 18px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 18px; transition: 0.3s; }
+        .btn-primary:hover, .btn-reset:hover { transform: translateY(-3px); filter: brightness(1.2); }
+        .btn-reset:active { transform: scale(0.95); }
+
+        .content_area {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 60px;
+            flex: 1;
+            align-items: center;
+            position: relative;
+            z-index: 5;}
+        /* 左侧 3D 芯片动画 */
+        .left-panel {
+            perspective: 1000px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;}
+        .chip-scene {
+            width: 300px;
+            height: 300px;
+            transform-style: preserve-3d;
+            animation: rotate 20s linear infinite;}
+        @keyframes rotate {
+            from { transform: rotateY(0deg) rotateX(15deg); }
+            to { transform: rotateY(360deg) rotateX(15deg); }}
+        .chip-body {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: #222;
+            border: 2px solid #333;
+            top: 50px; left: 50px;
+            box-shadow: 0 0 50px rgba(74, 185, 157, 0.1);
+            display: flex; align-items: center; justify-content: center;}
+        .chip-core {
+            width: 80px; height: 80px;
+            background: radial-gradient(circle, var(--primary) 0%, transparent 80%);
+            box-shadow: 0 0 30px var(--primary);
+            border-radius: 4px;
+            animation: pulse 3s infinite;}
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.1); }}
+        .code-tag {
+            margin-top: 40px;
+            font-family: 'JetBrains Mono';
+            color: var(--primary);
+            font-size: 18px;
+            opacity: 0.6;}
+        /* 右侧交互面板 */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;}
+        .summary-nav {
+            display: flex;
+            gap: 15px;}
+        .nav-item {
+            padding: 12px 20px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--text-dim);
+            transition: all 0.3s;}
+        .nav-item.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(74, 185, 157, 0.1);}
+        .detail-box {
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            padding: 40px;
+            min-height: 260px;
+            border-left: 4px solid var(--primary);
+            transition: all 0.3s;}
+        .box-title {
+            font-size: 24px;
+            color: var(--primary);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;}
+        .box-content {
+            font-size: 17px;
+            line-height: 1.8;
+            color: var(--text-dim);}
+        .highlight { color: var(--primary); font-weight: bold; }
+        .conclusion-note {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+            font-style: italic;}
+        /* 入场动画扩展 */
+        .anim-1 { animation: fadeInDown 0.8s backwards; }
+        .anim-2 { animation: fadeInDown 0.8s 0.2s backwards; }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }}
+        
+
+
+        .flow-rect {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border-radius: 4px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .flow-diamond {
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+            font-weight: bold;
+        }
+        .logic-step {
+            padding: 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            border-left: 3px solid var(--primary);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+
+
+      /* @keyframes dashflow {
+        to { stroke-dashoffset: -30; }
+    } */
+   
+/* 仅在 ID 为 p20 的容器激活时生效 */
+    #p20.active line, #p20.active path {
+        stroke-dasharray: 10, 5;
+        animation: dashflow 2s linear infinite;
+    }
+    /* 结束页专属入场微调 */
+    #p21.active .anim-path {
+        animation: dashLine 1s ease-out forwards 1s;
+    }
+    #p21.active .loop-path {
+        animation: flowLoop 10s linear infinite;
+        opacity: 1;
+    }
+
+   </style>
+</head>
+<body>
+
+<div class="presentation-wrapper" id="presentation">
+    <div class="nav-zone prev" onclick="changeSlide(-1)"></div>
+    <div class="nav-zone next" onclick="changeSlide(1)"></div>
+    <div class="progress-bar" id="progress">1 / 21</div>
+
+    <!-- P1: 封面 -->
+    <div class="slide-container active" id="p1">
+        <div class="hero-bg"></div>
+        <div class="hero-accent"></div>
+        <div class="content-area">
+            <h1 style="font-size: 72px; margin-bottom: 20px;" class="anim-1">微程序控制器设计</h1>
+            <p style="font-family: 'JetBrains Mono'; color: var(--primary); font-size: 28px; letter-spacing: 4px;" class="anim-2">MICROPROGRAMMED CONTROL UNIT DESIGN</p>
+            <div style="margin-top: 60px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; width: 400px;" class="anim-3">
+                <p style="color: var(--text-dim);">第10组：Xxx、Xxx、Xxx、Xxx</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- P2: 目录 -->
+    <div class="slide-container" id="p2">
+        <div class="slide-title">AGENDA</div>
+        <div class="content-area">
+            <div class="agenda-grid">
+                <div class="agenda-card anim-ladder" style="animation-delay: 0.1s;">
+                    <span>01</span><i class="fas fa-brain"></i>核心思想
+                </div>
+                <div class="agenda-card anim-ladder" style="animation-delay: 0.2s;">
+                    <span>02</span><i class="fas fa-memory"></i>控存解析
+                </div>
+                <div class="agenda-card anim-ladder" style="animation-delay: 0.3s;">
+                    <span>03</span><i class="fas fa-code"></i>指令编码
+                </div>
+                <div class="agenda-card anim-ladder" style="animation-delay: 0.4s;">
+                    <span>04</span><i class="fas fa-project-diagram"></i>执行流程
+                </div>
+                <div class="agenda-card anim-ladder" style="animation-delay: 0.5s;">
+                    <span>05</span><i class="fas fa-microchip"></i>案例分析
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- P3: 核心思想 -->
+    <div class="slide-container" id="p3">
+        <div class="slide-title">CONCEPT</div>
+        <div class="content-area">
+            <div style="text-align: center;">
+                <h2 style="font-size: 60px; color: var(--primary); margin-bottom: 40px;" class="anim-1">“用软件技术设计硬件”</h2>
+                <div style="display: inline-block; padding: 30px; background: rgba(255,255,255,0.03); border-radius: 20px; max-width: 800px;" class="anim-2">
+                    <p style="font-size: 24px; line-height: 1.8; color: var(--text-dim);">
+                        将极其复杂的组合逻辑电路转化为<b>存储逻辑</b>。<br>
+                        机器指令不再直接驱动硬件，而是调用一段底层的微程序。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- P4: 指令层级映射图 -->
+    <div class="slide-container" id="p4">
+        <div class="slide-title">HIERARCHY<span>指令层级映射图</span></div>
+        <div class="content-area">
+            <div class="map-wrapper">
+                <!-- 1. 机器指令 - 静态出现，后触发强调 -->
+                <div class="node-box emph-1" style="border-color: var(--accent); color: var(--accent);">一条机器指令</div>
+                
+                <!-- 连线1 -->
+                <svg width="60" height="20" class="connector-svg">
+                    <path d="M0,10 L60,10" stroke="var(--primary)" stroke-width="2" fill="none" class="anim-path" marker-end="url(#arrowhead)"/>
+                </svg>
+
+                <!-- 2. 微程序 - 静态出现，后触发强调 -->
+                <div class="node-box emph-2">一个微程序</div>
+
+                <!-- 连线2 (大括号分叉) -->
+                <svg width="60" height="180" class="connector-svg">
+                    <path d="M0,90 L30,90" stroke="var(--primary)" stroke-width="2" fill="none" class="anim-path"/>
+                    <path d="M30,90 Q40,90 40,70 L40,40 Q40,20 60,20" stroke="var(--primary)" stroke-width="2" fill="none" class="anim-path"/>
+                    <path d="M30,90 Q40,90 40,110 L40,140 Q40,160 60,160" stroke="var(--primary)" stroke-width="2" fill="none" class="anim-path"/>
+                    <path d="M30,90 L60,90" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="4" fill="none" class="anim-path"/>
+                </svg>
+
+                <!-- 3. 微指令序列 - 静态存在，直接由 emph-3 触发缩放高亮 -->
+                <div class="v-stack">
+                    <div class="seq-item emph-3">微指令 1</div>
+                    <div class="seq-item">微指令 2</div>
+                    <div class="seq-item dots">...</div>
+                    <div class="seq-item">微指令 n</div>
+                </div>
+
+                <!-- 连线3 (从微指令1分叉到微命令) -->
+                <svg width="60" height="100" class="connector-svg" style="align-self: flex-start; margin-top: 164px;">
+                    <path d="M0,0 L30,0" stroke="var(--cyber-cyan)" stroke-width="2" fill="none" class="anim-path"/>
+                    <path d="M30,0 L30,-15 Q30,-25 40,-25 L60,-25" stroke="var(--cyber-cyan)" stroke-width="2" fill="none" class="anim-path"/>
+                    <path d="M30,0 L30,40 Q30,50 40,50 L60,50" stroke="var(--cyber-cyan)" stroke-width="2" fill="none" class="anim-path"/>
+                </svg>
+
+                <!-- 4. 微命令 - 静态存在 -->
+                <div class="sub-stack emph-4" style="align-self: flex-start; margin-top: 122px;">
+                    <div class="sub-item">微命令 1</div>
+                    <div class="sub-item">微命令 2</div>
+                </div>
+
+                <!-- 连线4 (虚线对应执行) -->
+                <svg width="60" height="120" class="connector-svg" style="align-self: flex-start; margin-top: 140px;">
+                    <path d="M0,0 L60,0" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="4" fill="none" class="anim-path"/>
+                    <path d="M0,75 L60,75" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="4" fill="none" class="anim-path"/>
+                </svg>
+
+                <!-- 5. 微操作 - 静态存在 -->
+                <div class="sub-stack emph-5" style="align-self: flex-start; margin-top: 124px;">
+                    <div class="sub-item" style="border-style: dashed;">微操作 1</div>
+                    <div class="sub-item" style="border-style: dashed;">微操作 2</div>
+                </div>
+            </div>
+
+            <!-- 底部说明 -->
+            <div style="position: absolute; bottom: 40px; right: 80px; text-align: right;" class="anim-4">
+                <p style="color: var(--accent); font-size: 18px;"><i class="fas fa-project-diagram"></i> 控制逻辑 &rarr; 存储逻辑的完整映射</p>
+                <p style="color: var(--text-dim); font-size: 14px;">注：每一条微指令在时间上占用一个 CPU 周期</p>
+            </div>
+
+            <!-- 定义箭头 -->
+            <svg width="0" height="0">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="var(--primary)" />
+                    </marker>
+                </defs>
+            </svg>
+        </div>
+    </div>
+
+    <!-- P5: 定义 (1) -->
+    <div class="slide-container" id="p5">
+        <div class="slide-title">DEFINITION (1)</div>
+        <div class="content-area">
+            <div class="split-grid">
+                <div class="tech-card anim-ladder" style="animation-delay: 0.1s;">
+                    <h3 style="color: var(--primary); font-size: 32px; margin-bottom: 20px;">微程序</h3>
+                    <p style="font-size: 20px; color: var(--text-dim); line-height: 1.6;">
+                        有序微指令的集合。<br>
+                        一种存储在控制存储器（CM）中的“底层固件”。
+                    </p>
+                </div>
+                <div class="tech-card anim-ladder" style="animation-delay: 0.3s; border-left-color: var(--cyber-cyan);">
+                    <h3 style="color: var(--cyber-cyan); font-size: 32px; margin-bottom: 20px;">微指令</h3>
+                    <p style="font-size: 20px; color: var(--text-dim); line-height: 1.6;">
+                        控制存储器中的一个单元。<br>
+                        在<b>一个CPU周期</b>内发出，包含一组并行的微命令。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- P6: 微命令与操作 -->
+    <div class="slide-container" id="p6">
+        <div class="slide-title">DEFINITION (2)</div>
+        <div class="content-area">
+            <div class="split-grid">
+                <div class="tech-card anim-ladder" style="animation-delay: 0.1s;">
+                    <h3 style="color: var(--accent); font-size: 32px; margin-bottom: 20px;">微命令</h3>
+                    <p style="font-size: 20px; color: var(--text-dim);">
+                        <b>控制信号</b>（发送端）。<br>
+                        例如：打入脉冲、电位控制信号。
+                    </p>
+                </div>
+                <div class="tech-card anim-ladder" style="animation-delay: 0.3s;">
+                    <h3 style="color: var(--primary); font-size: 32px; margin-bottom: 20px;">微操作</h3>
+                    <p style="font-size: 20px; color: var(--text-dim);">
+                        <b>执行动作</b>（接收端）。<br>
+                        例如：(PC)+1 &rarr; PC，(R0) &rarr; MAR。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- P7: 相容性与相斥性 (已删去闪电) -->
+    <div class="slide-container" id="p7">
+        <div class="slide-title">COMPATIBILITY<span>相容性与相斥性分析</span></div>
+        <div class="content-area">
+            <div class="comp-grid">
+                <!-- 左：相容性 -->
+                <div class="comp-card anim-1">
+                    <h3 style="color: var(--primary);"><i class="fas fa-layer-group"></i> 相容性</h3>
+                    <div class="waveform-container">
+                        <div class="wave-row">
+                            <span class="wave-label">Cmd A</span>
+                            <svg class="wave-svg"><path d="M0,35 L120,35 L120,5 L260,5 L260,35 L400,35" stroke="var(--primary)" fill="none" stroke-width="4" class="anim-path"/></svg>
+                        </div>
+                        <div class="wave-row">
+                            <span class="wave-label">Cmd B</span>
+                            <svg class="wave-svg"><path d="M0,35 L120,35 L120,5 L260,5 L260,35 L400,35" stroke="var(--cyber-cyan)" fill="none" stroke-width="4" class="anim-path"/></svg>
+                        </div>
+                        <div style="width: 100%; height: 3px; background: rgba(255,255,255,0.1); position: relative; margin-top: 10px;">
+                            <div style="position: absolute; left: 140px; width: 140px; height: 100%; background: var(--accent); opacity: 0.4;"></div>
+                            <span style="position: absolute; left: 175px; top: 12px; color: var(--accent); font-family: 'JetBrains Mono'; font-size: 14px; font-weight: bold;">T1: 并行有效</span>
+                        </div>
+                    </div>
+                    <div class="card-desc">指令间无物理资源冲突<br>可在一个 CPU 周期内同时执行</div>
+                </div>
+
+                <!-- 右：相斥性 (已删去闪电，保持实心) -->
+                <div class="comp-card anim-2" style="border-color: rgba(255, 77, 77, 0.2);">
+                    <h3 style="color: var(--danger);"><i class="fas fa-hand-paper"></i> 相斥性</h3>
+                    
+                    <div class="conflict-area">
+                        <div class="conflict-diagram">
+                            <div class="sub-item-large">Cmd X</div>
+                            
+                            <div style="position: relative; flex: 1; display: flex; align-items: center; justify-content: center;">
+                                <svg width="100%" height="20" style="overflow: visible;">
+                                    <line x1="0" y1="10" x2="100%" y2="10" stroke="#ff4d4d" stroke-width="2" stroke-dasharray="5,5"/>
+                                    <circle cx="50%" cy="10" r="5" fill="#ff4d4d"/>
+                                </svg>
+                            </div>
+                            <!-- 实心 CPU 总线框 -->
+                            <div class="resource-box">
+                                CPU 总线
+                            </div>
+
+                            <div style="position: relative; flex: 1; display: flex; align-items: center; justify-content: center;">
+                                <svg width="100%" height="20" style="overflow: visible;">
+                                    <line x1="0" y1="10" x2="100%" y2="10" stroke="#ff4d4d" stroke-width="2" stroke-dasharray="5,5"/>
+                                    <circle cx="50%" cy="10" r="5" fill="#ff4d4d"/>
+                                </svg>
+                            </div>
+
+                            <div class="sub-item-large danger-border">Cmd Y</div>
+                        </div>
+                        
+                        <div style="background: rgba(255, 77, 77, 0.15); padding: 12px 30px; border-radius: 30px; border: 2px solid var(--danger);">
+                            <span style="color: #ff8888; font-weight: bold; font-size: 15px;">⚠️ 硬件资源争用：严禁同时发出</span>
+                        </div>
+                    </div>
+
+                    <div class="card-desc">指令争用同一物理路径<br>必须分时段执行或进行互斥编码</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- P8: 数据通路 (最终修正版) -->
+    <div class="slide-container" id="p8">
+        <div class="slide-title">DATAPATH<span>完整数据通路演练 (R1 + R2 → R3)</span></div>
+        <div class="content-area">
+            <svg viewBox="0 0 1000 520" style="width: 100%; height: 100%;">
+                <defs>
+                    <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                        <path d="M0,0 L8,4 L0,8 Z" fill="var(--primary)" />
+                    </marker>
+                    <marker id="arr-gray" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                        <path d="M0,0 L6,3 L0,6 Z" fill="#444" />
+                    </marker>
+                </defs>
+
+                <!-- ALU 核心 -->
+                <path d="M350,80 L550,80 L580,140 L500,140 L450,170 L400,140 L320,140 Z" class="st-alu" />
+                <text x="450" y="125" class="st-text" text-anchor="middle" style="font-size: 24px;">ALU</text>
+                
+                <!-- 运算控制微命令 -->
+                <text x="640" y="95" class="st-cmd-text anim-cmd-active" style="animation-delay: 1.5s;">+</text>
+                <text x="640" y="125" class="st-cmd-text" style="font-size: 22px;">-</text>
+                <text x="640" y="150" class="st-cmd-text" style="font-size: 22px;">m</text>
+                
+                <!-- MUX X: 包含微命令 4, 6, 8 -->
+                <rect x="260" y="240" width="180" height="45" class="st-node" />
+                <text x="350" y="270" class="st-text" text-anchor="middle">MUX X</text>
+                <text x="280" y="305" class="st-cmd-text anim-cmd-active" style="animation-delay: 0.5s;">4</text>
+                <text x="320" y="305" class="st-cmd-text">6</text>
+                <text x="360" y="305" class="st-cmd-text">8</text>
+                
+                <!-- MUX Y: 包含微命令 5, 7, 9 -->
+                <rect x="470" y="240" width="180" height="45" class="st-node" />
+                <text x="560" y="270" class="st-text" text-anchor="middle">MUX Y</text>
+                <text x="490" y="305" class="st-cmd-text">5</text>
+                <text x="530" y="305" class="st-cmd-text anim-cmd-active" style="animation-delay: 0.5s;">7</text>
+                <text x="570" y="305" class="st-cmd-text">9</text>
+
+                <!-- 寄存器组 (R1, R2, R3) -->
+                <g transform="translate(0, 10)">
+                    <rect x="230" y="380" width="110" height="45" class="st-node" />
+                    <text x="285" y="410" class="st-text" text-anchor="middle">R1</text>
+                    <text x="280" y="455" class="st-cmd-text">1</text>
+
+                    <rect x="395" y="380" width="110" height="45" class="st-node" />
+                    <text x="450" y="410" class="st-text" text-anchor="middle">R2</text>
+                    <text x="450" y="455" class="st-cmd-text">2</text>
+
+                    <rect x="560" y="380" width="110" height="45" class="st-node anim-reg-mint" style="animation-delay: 4.5s;" />
+                    <text x="615" y="410" class="st-text" text-anchor="middle">R3</text>
+                    <text x="625" y="455" class="st-cmd-text anim-cmd-active" style="animation-delay: 4.5s;">3</text>
+                </g>
+
+                <!-- --- 静态连接路径 (您要求增加的部分) --- -->
+                <!-- R1 -> MUX Y (静态) -->
+                <path d="M285,380 L285,350 L500,350 L500,285" class="st-line-static" marker-end="url(#arr-gray)" />
+                <!-- R2 -> MUX X (静态) -->
+                <path d="M450,380 L450,330 L380,330 L380,285" class="st-line-static" marker-end="url(#arr-gray)" />
+                <!-- R3 -> MUX Y (静态) -->
+                <path d="M615,380 L615,340 L560,340 L560,285" class="st-line-static" marker-end="url(#arr-gray)" />
+                
+                <!-- --- 动画流路径 (加法任务: R1+R2->R3) --- -->
+                <!-- R1 -> MUX X (实际选通) -->
+                <path d="M285,390 L285,330 L350,330 L350,285" class="flow-path anim-flow" style="animation-delay: 0.4s;" marker-end="url(#arr)"/>
+                <!-- R2 -> MUX Y (实际选通) -->
+                <path d="M450,390 L450,330 L550,330 L550,285" class="flow-path anim-flow" style="animation-delay: 0.4s;" marker-end="url(#arr)"/>
+                <!-- MUX -> ALU 输入 -->
+                <path d="M350,240 L350,175" class="flow-path anim-flow" style="animation-delay: 1.4s; stroke-dasharray: 100;" marker-end="url(#arr)" />
+                <path d="M550,240 L550,175" class="flow-path anim-flow" style="animation-delay: 1.4s; stroke-dasharray: 100;" marker-end="url(#arr)" />
+
+                <!-- ALU 输出 -> 写回 R3 -->
+                <path d="M450,80 L450,30 L800,30 L800,485 L615,485 L615,445" class="feedback-path anim-flow" style="animation-delay: 3.2s;" marker-end="url(#arr)"/>
+            </svg>
+
+            <div class="logic-panel">
+                <div class="logic-step">
+                    <strong style="color: var(--primary);">01. 选通输入 (Fetch)</strong><br>
+                    微命令 4 和 7 有效。图中<b>实线</b>表示被激活的路径。
+                </div>
+                <div class="logic-step">
+                    <strong style="color: var(--primary);">02. 运算 (Execute)</strong><br>
+                    微命令 <span style="color:var(--primary)">+</span> 激活。ALU 执行加法。
+                </div>
+                <div class="logic-step">
+                    <strong style="color: var(--primary);">03. 回写 (Write-back)</strong><br>
+                    微命令 3 激活。结果沿反馈总线进入 R3。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- P9: 微指令结构 -->
+    <div class="slide-container" id="p9">
+        <div class="slide-title">STRUCTURE<span>微指令的解剖学构造</span></div>
+        <div class="content-area">
+            <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 60px; align-items: center;">
+                <div class="anim-1">
+                    <div style="margin-bottom: 40px; border-left: 5px solid var(--primary); padding-left: 20px;">
+                        <h3 style="color: var(--primary); font-size: 32px; margin-bottom: 10px;">操作控制字段</h3>
+                        <p style="color: var(--text-dim); font-size: 20px; line-height: 1.6;">用于发出<b>微命令</b>，直接驱动硬件（寄存器、ALU、三态门）完成最基本的原子动作（微操作）。</p>
+                    </div>
+                    <div style="border-left: 5px solid var(--bus-color); padding-left: 20px;">
+                        <h3 style="color: var(--bus-color); font-size: 32px; margin-bottom: 10px;">顺序控制字段</h3>
+                        <p style="color: var(--text-dim); font-size: 20px; line-height: 1.6;">用于决定产生<b>下一条微指令</b>的地址（下址），实现微程序的逻辑流转和分支跳转。</p>
+                    </div>
+                </div>
+                <div class="anim-2">
+                    <p style="font-family: 'JetBrains Mono'; text-align: center; margin-bottom: 20px; color: var(--accent);">[ 微指令字总长 (n Bits) ]</p>
+                    <div class="ins-bar-3d">
+                        <div class="part-op">操作控制字段 (Micro-OPs)</div>
+                        <div class="part-seq">下址字段 (Next ADDR)</div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 30px; font-family: 'JetBrains Mono'; font-size: 14px;">
+                        <span>BIT: 0</span>
+                        <span>BIT: 17 | 18</span>
+                        <span>BIT: 23</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- P10-->
+    <div class="slide-container" id="p10">
+        <div class="slide-title">ENCODING I<span>直接编码：速度之王</span></div>
+        <div class="content-area">
+            <div style="position: relative; height: 100px; text-align: center; margin-bottom: 150px;" class="anim-1">
+                <div class="bit-row" style="display: flex; justify-content: center; gap: 5px;">
+                    <div class="bit-cell active" style="animation: bitFlash 2s infinite;">1</div> <div class="bit-cell">0</div>
+                    <div class="bit-cell active">1</div> <div class="bit-cell">0</div>
+                    <div class="bit-cell active">1</div> <div class="bit-cell">1</div>
+                    <div class="bit-cell">...</div>
+                    <div class="bit-cell active">1</div>
+                </div>
+                <p style="position: absolute; left: 50%; transform: translateX(-50%); top: -40px; width: 100%;font-family: 'JetBrains Mono'; color: var(--primary);margin: 0;">每一个二进制位 &rarr; 一个控制信号</p>
+            </div>
+        
+            <svg style="position: absolute; top: 185px; left: 0; width: 100%; height: 60px; overflow: visible;">
+                <path d="M 360,0 L 360,50" stroke="var(--primary)" stroke-width="4" marker-end="url(#arrowhead)"/>
+                <path d="M 520,0 L 520,50" stroke="var(--primary)" stroke-width="4" marker-end="url(#arrowhead)"/>
+                <path d="M 680,0 L 680,50" stroke="var(--primary)" stroke-width="4" marker-end="url(#arrowhead)"/>
+            </svg>
+
+            <div class="hw-icon" style="position: absolute; top: 250px; left: 310px; width: 100px;">
+                <i class="fas fa-microchip"></i><br>ALU (Add)
+            </div>
+        
+            <div class="hw-icon" style="position: absolute; top: 250px; left: 470px; width: 100px;">
+                <i class="fas fa-memory"></i><br>Reg Write
+            </div>
+        
+            <div class="hw-icon" style="position: absolute; top: 250px; left: 630px; width: 100px;">
+                <i class="fas fa-door-open"></i><br>Bus Gate
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 60px;" class="anim-3">
+                <div style="background: rgba(74, 185, 157, 0.1); padding: 20px; border-radius: 8px;">
+                    <strong style="color: var(--primary);">优点：</strong> 逻辑最直观，<b>速度极快</b>（无须译码），并行能力最强。
+                </div>
+                <div style="background: rgba(255, 107, 107, 0.1); padding: 20px; border-radius: 8px;">
+                    <strong style="color: var(--danger);">缺点：</strong> 微指令字<b>极其长</b>，导致控制存储器（CM）硬件成本高昂。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- P11: 字段直接编码设计 (修改版) -->
+    <div class="slide-container" id="p11">
+        <div class="slide-title">ENCODING II<span>字段直接编码设计</span></div>
+        <div class="content-area" style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px;">
+            
+            <!-- 左侧：硬件插画 (向左偏移) -->
+            <div style="display: flex; flex-direction: column; align-items: flex-start; padding-left: 20px; padding-top: 120px;">
+                
+                <!-- 1. 指令条 (左侧对齐) -->
+                <div class="instruction-reg" id="p11-step1">
+                    <div class="reg-field field-a">3 bits</div>
+                    <div class="reg-field field-b">4 bits</div>
+                    <div class="reg-field field-addr">Next Address</div>
+                </div>
+
+                <!-- 2. 译码器阵列 (整体左偏) -->
+                <div style="display: flex; gap: 80px; margin-left: 10px;">
+                    <!-- 字段A 译码支路 -->
+                    <div style="display: flex; flex-direction: column; align-items: center;" id="p11-step2">
+                        <div class="v-line"></div>
+                        <div class="decoder-trapezoid">3-8 DECODER</div>
+                        
+                        <div id="p11-step3" style="display: flex; flex-direction: column; align-items: center;">
+                            <div class="signal-grid">
+                                <div class="signal-line"></div>
+                                <div class="signal-line"></div>
+                                <div class="signal-line active"></div> <!-- 高亮信号 -->
+                                <div class="signal-line"></div>
+                                <div class="signal-line"></div>
+                                <div class="signal-line"></div>
+                                <div class="signal-line"></div>
+                                <div class="signal-line"></div>
+                            </div>
+                            <div style="margin-top: 45px; background: rgba(74,185,157,0.2); border: 1px solid var(--primary); padding: 10px 20px; border-radius: 6px; font-size: 15px; font-family: 'JetBrains Mono';">
+                                <i class="fas fa-bolt" style="color: var(--accent);"></i> ALU_ADD
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 字段B 译码支路 -->
+                    <div style="display: flex; flex-direction: column; align-items: center; opacity: 0.3;">
+                        <div class="v-line"></div>
+                        <div class="decoder-trapezoid" style="border-color: var(--bus-color); color: var(--bus-color);">4-16 DECODER</div>
+                        <div class="signal-grid">
+                            <div class="signal-line"></div>
+                            <div class="signal-line"></div>
+                            <div class="signal-line"></div>
+                            <div class="signal-line"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：侧边逻辑注释 -->
+            <div id="p11-step4">
+                <div class="sidebar-logic">
+                    <h4 style="font-size: 26px; margin-bottom: 20px;">核心设计准则</h4>
+                    <ul style="font-size: 20px; line-height: 2;"> <li><b>互斥性 (Exclusivity):</b><br>同段内的微命令不可并行执行，物理上由译码器保证。</li>
+                        <li style="margin-top: 15px;"><b>状态留白 (Status 000):</b><br>必须包含一个“无动作”编码（全0），代表该字段不发出任何信号。</li>
+                    </ul>   
+                    <div style="margin-top: 30px; padding: 20px; background: rgba(0,255,255,0.05); border: 1px dashed var(--bus-color); border-radius: 8px;">
+                        <p style="margin: 0; color: var(--bus-color); font-size: 20px; font-family: 'JetBrains Mono'; line-height: 1.8;">
+                            SPACE: 3位控制8信号<br>
+                            COST: 增加一级译码延迟
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- P12: 综合对比 -->
+    <div class="slide-container" id="p12">
+        <div class="slide-title">BATTLE<span>编码方式综合对比表</span></div>
+        <div class="content-area">
+            <div class="anim-1">
+                <table class="comp-table">
+                    <thead>
+                        <tr>
+                            <th>对比维度</th>
+                            <th>直接编码 (Direct)</th>
+                            <th>字段直接编码 (Field)</th>
+                            <th>字段间接编码</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="row-anim" style="animation-delay: 0.2s;">
+                            <td><strong>指令字长</strong></td>
+                            <td>最长 (冗余极高)</td>
+                            <td><i class="fas fa-compress-alt" style="color: var(--primary);"></i> 较短 (高度压缩)</td>
+                            <td>最短</td>
+                        </tr>
+                        <tr class="row-anim" style="animation-delay: 0.4s;">
+                            <td><strong>执行速度</strong></td>
+                            <td><i class="fas fa-tachometer-alt" style="color: var(--primary);"></i> 极快 (无译码)</td>
+                            <td>较快 (一级译码)</td>
+                            <td>较慢 (多级译码)</td>
+                        </tr>
+                        <tr class="row-anim" style="animation-delay: 0.6s;">
+                            <td><strong>并行性</strong></td>
+                            <td>极佳 (全指令并行)</td>
+                            <td>受段内互斥限制</td>
+                            <td>较差</td>
+                        </tr>
+                        <tr class="row-anim" style="animation-delay: 0.8s;">
+                            <td><strong>硬件开销</strong></td>
+                            <td>零译码逻辑</td>
+                            <td>需要增加译码器</td>
+                            <td>复杂译码电路</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="anim-3" style="margin-top: 40px; border-left: 4px solid var(--accent); padding: 15px; background: rgba(255,215,0,0.05);">
+                <p style="color: var(--accent);"><i class="fas fa-lightbulb"></i> <b>设计秘籍：</b> 现代 CPU 通常混合使用多种编码方式，以求在速度、字长和灵活性之间达成黄金平衡。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 定义箭头宏 -->
+    <svg width="0" height="0">
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="var(--primary)" />
+            </marker>
+        </defs>
+    </svg>
+
+    <!-- Slide 13 -->
+    <div class="slide-container" id="s13">
+        <div class="slide-title">微程序控制器硬件全景 <span>Hardware Architecture</span></div>
+        <div class="content" style="gap: 60px;">
+            <div class="text-box" style="flex: 0.8;padding-left: 110px;">
+                <div class="info-card" style="padding: 30px;">
+                    <h3 style="font-size: 26px;">核心循环 (Core Cycle)</h3>
+                    <p style="font-size: 19px;">微程序执行本质是一个闭环逻辑：当前微指令决定下一条地址，新地址回流至入口，驱动持续动作。</p>
+                </div>
+                <div class="info-card" style="border-left-color: var(--accent); padding-top: 30px;">
+                    <h3 style="font-size: 26px;">主要部件</h3>
+                    <p style="font-size: 19px;">包括控制存储器(CM)、微指令寄存器(CMDR)、微地址寄存器(CMAR)及形成逻辑。</p>
+                </div>
+            </div>
+            <div class="visual-box" style="flex: 1; transform: scale(1.05);">
+                <svg viewBox="100 12 500 450" class="loop-svg">
+                    <path id="masterPath" d="M300,100 L300,160 L300,220 L300,340 L300,410 L520,410 L520,80 L300,80 L300,100" fill="none" />
+                    <path d="M300,100 L300,160" class="path-static" />
+                    <path d="M300,200 L300,240" class="path-static" />
+                    <path d="M300,320 L300,370" class="path-static" />
+                    <path d="M430,410 L520,410 L520,80 L300,80 L300,100" class="path-static" stroke-dasharray="5,5" />
+                    <path d="M300,40 L300,80" class="path-static" />
+
+                    <path class="path-anim" d="M300,100 L300,160 L300,220 L300,340 L300,410 L520,410 L520,80 L300,80 L300,100" />
+
+                    <rect x="200" y="10" width="200" height="30" class="node" />
+                    <text x="300" y="30" class="node-label">指令寄存器 IR</text>
+
+                    <polygon points="200,80 400,80 380,120 220,120" style="fill: #1a332d; stroke: var(--primary); stroke-width: 3;" />
+                    <text x="300" y="105" class="node-label">微地址形成部件</text>
+
+                    <rect x="240" y="160" width="120" height="40" class="node" />
+                    <text x="300" y="185" class="node-label">CMAR</text>
+
+                    <rect x="180" y="240" width="240" height="80" style="fill: #1a332d; stroke: var(--primary); stroke-width: 3;" />
+                    <text x="300" y="285" class="node-label" style="font-size: 18px;">控制存储器 (CM)</text>
+
+                    <rect x="170" y="370" width="260" height="50" class="node" />
+                    <text x="300" y="400" class="node-label">微指令寄存器 (CMDR)</text>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 14: CM 存储矩阵 -->
+    <div class="slide-container" id="p14">
+        <h2 class="slide-title">控制存储器 (CM) 详解 <span>Control Memory</span></h2>
+        <div class="content-area">
+            <div class="split-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                <div class="left-col" style="margin-top: 20px;">
+                    <div class="info-card">
+                        <h3 style="font-size: 26px;"><i class="fas fa-database"></i> 存储矩阵可视化</h3>
+                        <p style="font-size: 20px;">控制存储器（CM）是微程序控制器的“灵魂”。所有的微指令按地址排列在矩阵中。</p>
+                    </div>
+                    <div class="info-card">
+                        <h3 style="font-size: 26px;"><i class="fas fa-microchip"></i> 硬件逻辑软件化</h3>
+                        <p style="font-size: 20px;">每一行代表一个 24 位（或其他位数）的微指令。</p>
+                    </div>
+                    <div class="info-card" style="border-left: 4px solid var(--accent);">
+                        <p style="font-size: 20px;"><i class="fas fa-lightbulb" style="color:var(--accent)"></i> 模拟“取指”过程。</p>
+                    </div>
+                </div>
+                <div class="right-col" style="margin-top: -40px;">
+                    <div class="cm-matrix">
+                        <div class="cm-cell highlight">
+                            <span>000H: FETCH_01 (PC &rarr; ABUS)</span>
+                            <div class="binary-overlay">1000 0011 0000 1111 0000 0000</div>
+                        </div>
+                        <div class="cm-cell highlight">
+                            <span>001H: FETCH_02 (MEM_RD &rarr; IR)</span>
+                            <div class="binary-overlay">0001 1100 0110 0000 0000 0001</div>
+                        </div>
+                        <div class="cm-cell highlight">
+                            <span>002H: FETCH_03 (P1 TEST BRANCH)</span>
+                            <div class="binary-overlay">0000 0000 0100 0000 0000 0000</div>
+                        </div>
+                        <div class="cm-cell">
+                            <span>... 保留空间 ...</span>
+                        </div>
+                        <div class="cm-cell">
+                            <span>100H: ADD_01 (R0 &rarr; A, R1 &rarr; B)</span>
+                            <div class="binary-overlay">1010 0001 1100 1100 1010 1010</div>
+                        </div>
+                        <div class="cm-cell">
+                            <span>101H: ADD_02 (ALU_ADD &rarr; DR)</span>
+                            <div class="binary-overlay">1100 0011 0011 0011 0000 1111</div>
+                        </div>
+                        <div class="cm-cell">
+                            <span>200H: MOV_01 (Rs &rarr; Rd)</span>
+                            <div class="binary-overlay">0011 1100 0011 1100 1111 0000</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 15: 下址逻辑切换 -->
+    <div class="slide-container" id="p15">
+        <div class="slide-title">NEXT ADDRESS LOGIC</div>
+        <div class="content-area">
+            <div class="split-grid">
+                <div class="left-col"style="padding-top: 40px;">
+                    <div class="info-card">
+                        <h3 style="font-size: 26px;"><i class="fas fa-project-diagram"></i> 下址形成逻辑</h3>
+                        <p style="font-size: 20px;">微程序的执行顺序由“微地址形成部件”控制。它可以根据微指令的 <b>顺序字段</b> 或 <b>机器指令操作码</b> 进行跳转。</p>
+                    </div>
+                    <div class="logic-switch-panel">
+                        <button class="switch-btn active" id="btn-seq" onclick="updateLogic('seq')"style="margin-top: 20px;">
+                            <i class="fas fa-long-arrow-alt-down"></i>
+                            <div>
+                                <strong>顺序执行 (Default)</strong><br>
+                                <small>由当前微指令的下址字段直接给出</small>
+                            </div>
+                        </button>
+                        <button class="switch-btn" id="btn-p1" onclick="updateLogic('p1')">
+                            <i class="fas fa-random"></i>
+                            <div>
+                                <strong>P1 测试跳转 (Branch)</strong><br>
+                                <small>根据机器指令 OP 码映射到微程序入口</small>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+                <div class="right-col ">
+                    <div class="svg-container">
+                        <svg viewBox="0 0 500 450" width="100%" height="100%">
+                            <!-- IR -->
+                            <rect x="50" y="40" width="140" height="50" rx="4" fill="#222" stroke="#444" />
+                            <text x="120" y="72" text-anchor="middle" fill="#fff" font-family="JetBrains Mono" font-size="14">IR (OpCode)</text>
+                            
+                            <!-- CMDR Address Field -->
+                            <rect x="310" y="40" width="140" height="50" rx="4" fill="#222" stroke="#444" />
+                            <text x="380" y="72" text-anchor="middle" fill="#fff" font-family="JetBrains Mono" font-size="14">CMDR (下址字段)</text>
+
+                            <!-- Logic Component -->
+                            <rect x="150" y="200" width="200" height="80" rx="10" fill="rgba(74,185,157,0.1)" stroke="var(--primary)" stroke-width="2" />
+                            <text x="250" y="235" text-anchor="middle" fill="var(--primary)" font-weight="bold" font-size="16">微地址形成部件</text>
+                            <text x="250" y="260" text-anchor="middle" fill="var(--primary)" font-size="12">Next Address Logic</text>
+
+                            <!-- CMAR -->
+                            <rect x="190" y="350" width="120" height="50" rx="4" fill="#222" stroke="var(--primary)" stroke-dasharray="4" />
+                            <text x="250" y="382" text-anchor="middle" fill="#fff" font-family="JetBrains Mono" font-size="16" font-weight="bold">CMAR</text>
+
+                            <!-- Dynamic Paths -->
+                            <path id="link-ir" d="M120,90 V150 H210 V200" class="path-link" />
+                            <path id="link-cmdr" d="M380,90 V150 H290 V200" class="path-link active flow" />
+                            <line x1="250" y1="280" x2="250" y2="350" stroke="var(--primary)" stroke-width="2" />
+                            <polygon points="250,355 245,345 255,345" fill="var(--primary)" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 16：微指令结构-->
+    <div class="slide-container" id="p16">
+        <div class="slide-title">微指令标准结构</div>
+        <div class="content-area">
+            <div class="split_grid">
+                <div class="left-col">
+                    <div class="concept-card anim-2">
+                        <h3><i class="fas fa-microchip"></i> 24位水平型格式</h3>
+                        <p>指令字长定为 <span class="highlight-text">24 Bit</span>。水平型微指令能够在一个微周期内控制多个硬件部件，具有极高的并行效率。</p>
+                    </div>
+                    <div class="concept-card anim-3 delay-1">
+                        <h3><i class="fas fa-sitemap"></i> 结构化字段划分</h3>
+                        <p>通过科学划分操作控制、判别测试和下址字段，实现了控制逻辑与存储逻辑的完美解耦。</p>
+                    </div>
+                    <div class="concept-card anim-4 delay-2">
+                        <h3><i class="fas fa-bolt"></i> 零延时控制</h3>
+                        <p>操作码部分映射直接对应控制线电平，无需二级译码，响应延迟达到纳秒级级别。</p>
+                    </div>
+                </div>
+                <div class="right-col anim-4 delay-1">
+                    <div class="instruction-viz">
+                        <div style="display:flex; justify-content: space-between; padding: 0 15px 12px; font-family: monospace; color: #777;">
+                            <span>23</span><span>操作控制位</span><span>6</span><span>5</span><span>4</span><span>3</span><span>0</span>
+                        </div>
+                        <div class="bit-strip">
+                            <div class="field f-op active" onclick="updateDetail('op', this)">
+                                <span class="field-label">OP-CONTROL</span>
+                                <span class="field-range">BITS 23-6</span>
+                            </div>
+                            <div class="field f-test" onclick="updateDetail('test', this)">
+                                <span class="field-label">P</span>
+                                <span class="field-range">5-4</span>
+                            </div>
+                            <div class="field f-addr" onclick="updateDetail('addr', this)">
+                                <span class="field-label">ADDR</span>
+                                <span class="field-range">3-0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="detail-display">
+                        <div id="content-wrapper" class="detail-content-wrapper">
+                            <h4 id="box-title"><i class="fas fa-terminal"></i> 操作控制字段 (23-6)</h4>
+                            <p id="box-content">占据 <span class="highlight-text">18位</span> 空间。每一位直接对应数据通路中的一个微命令信号，这种“一位对一令”的映射方式，使硬件能够瞬间响应，是高性能控制器的首选。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 17: Execution Cycle (Upscaled Hardware) -->
+    <div class="slide-container" id="p17">
+        <div class="slide-title">EXECUTION CYCLE <span>微程序循环执行逻辑</span></div>
+        <div class="content-area "style="margin-top: -40px;">
+            <div class="split-grid">
+                <!-- Left Column: Enlarged Hardware -->
+                <div class="hardware-column" id="hw-col">
+                    <div class="component anim-1 " id="node-ir"><i class="fas fa-microchip"></i> 机器指令寄存器 (IR)</div>
+                    <div class="component anim-2 " id="node-map">映射逻辑 (Mapping ROM/PLA)</div>
+                    <div class="component anim-3 " id="node-mar">微地址寄存器 (μMAR)</div>
+                    <div class="component anim-4 " id="node-cm">控制存储器 (CM)</div>
+                    <div class="component uir-container anim-4 " id="node-uir">
+                        <div class="uir-part">操作控制 (μOP)</div>
+                        <div class="uir-part next-addr" id="next-field">下址 (μBA)</div>
+                    </div>
+
+                    <!-- Feedback Loop -->
+                    <div class="loop-path" id="loop-path">
+                        <div class="loop-label">地址反馈 (LOOP)</div>
+                    </div>
+                    
+                    <div id="p-main" class="particle"></div>
+                </div>
+
+                <!-- Right Column: Side Info & Buttons -->
+                <div class="side-panel" style="padding-top: 40px;">
+                    <div class="info-card" id="card-1">
+                        <h4>1. 入口寻址</h4>
+                        <p>机器指令的操作码经映射产生微程序的起始地址。这是宏指令进入微指令序列的起点。</p>
+                    </div>
+                    <div class="info-card" id="card-2">
+                        <h4>2. 读取控存</h4>
+                        <p>微地址送入 μMAR 后，从控制存储器 (CM) 读取对应的微指令。包含当前节拍的所有控制电平。</p>
+                    </div>
+                    <div class="info-card" id="card-3">
+                        <h4>3. 执行与下址</h4>
+                        <p>μOP 字段发出硬件控制信号，同时 μBA (下址字段) 指明下一条微指令的位置。</p>
+                    </div>
+                    <div class="info-card" id="card-4">
+                        <h4>4. 循环闭环</h4>
+                        <p>在微程序序列末尾，地址通过反馈回路送回 μMAR，实现微指令间的连续自动执行。</p>
+                    </div>
+
+                    <div class="btn-group" style="padding-top: -480px;">
+                        <button class="btn-primary" id="btn-anim" onclick="stepForward()">
+                            <i class="fas fa-play"></i> 开始演示
+                        </button>
+                        <button class="btn-reset" onclick="resetSlide17()">
+                            <i class="fas fa-undo"></i> 重置动画
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 18: 架构总结 (已集成到 wrapper 中) -->
+    <div class="slide-container" id="p18">
+        <!-- 标题部分 -->
+        <div class="slide-title anim-1">
+            ARCHITECTURE SUMMARY 
+            <span>微程序控制器设计总结与回顾</span>
+        </div>
+
+        <!-- 内容区域：使用了原有 margin-top 微调 -->
+        <div class="content_area anim-2" style="margin-top: -40px;">
+            <!-- 左侧：3D 芯片动画 -->
+            <div class="left-panel">
+                <div class="chip-scene">
+                    <div class="chip-body">
+                        <div class="chip-core"></div>
+                    </div>
+                </div>
+                <div class="code-tag">&lt; Micro-Programmable /&gt;</div>
+            </div>
+
+            <!-- 右侧：详情面板 -->
+            <div class="right-panel">
+                <div class="summary-nav" >
+                    <div class="nav-item active" style="font-size: 24px;" onclick="updateInfo('logic', this)">逻辑本质</div>
+                    <div class="nav-item" style="font-size: 24px;" onclick="updateInfo('advantage', this)">设计优势</div>
+                    <div class="nav-item" style="font-size: 24px;" onclick="updateInfo('cycle', this)">循环机制</div>
+                </div>
+
+                <div class="detail-box" id="info-box" >
+                    <div class="box-title" id="info-title" style="font-size: 26px;">
+                        <i class="fas fa-microchip"></i> 逻辑本质
+                    </div>
+                    <div class="box-content" id="info-content" style="font-size: 22px;">
+                        微程序控制器的核心是将<span class="highlight">组合逻辑</span>问题转化为<span class="highlight">存储逻辑</span>问题。它通过执行一段预存在 CM 中的微程序来解释执行每一条机器指令，实现了硬件设计的“软件化”。
+                    </div>
+                </div>
+
+                <div class="conclusion-note">
+                    * 总结：微程序设计实现了复杂指令集（CISC）的灵活性与规整性的统一。
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Slide 19: 微程序举例 -->
+    <div class="slide-container" id="slide-19">
+    <div class="slide-title">微程序举例<span>Example Case</span></div>
+    <div class="content-area">
+        <div class="split-grid">
+            <div class="tech-card anim-1">
+                <h3 style="color: var(--primary); margin-bottom: 20px;"><i class="fas fa-calculator"></i> 案例背景</h3>
+                <p style="line-height: 1.8; color: var(--text-dim);">
+                    以 <b>"BCD码十进制加法"</b> 指令为例。在计算机中，机器指令的功能是由一组微指令序列实现的 。<br><br>
+                    当两数之和 <b>> 9</b> 时，会产生进位且结果不正确，必须进行 <b>+6 修正</b> 才能得出正确结果 。
+                </p>
+            </div>
+            <div class="tech-card anim-2" style="border-left-color: var(--accent);">
+                <h3 style="color: var(--accent); margin-bottom: 20px;"><i class="fas fa-microchip"></i> 硬件前提</h3>
+                <ul style="list-style: none; color: var(--text-dim); line-height: 2;">
+                    <li><i class="fas fa-check-circle" style="color: var(--primary);"></i> 数据 <b>a, b</b> 已存入寄存器 <b>R1, R2</b> </li>
+                    <li><i class="fas fa-check-circle" style="color: var(--primary);"></i> 常数 <b>6</b> 已预存入寄存器 <b>R3</b> </li>
+                    <li><i class="fas fa-check-circle" style="color: var(--primary);"></i> 运算器采用图 5.21 所示的数据通路 </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="slide-container" id="p20">
+    <div class="slide-title">案例分析<span>Case Study: Decimal Addition</span></div>
+    <div class="content-area">
+        <div class="split-grid" style="grid-template-columns: 1.2fr 1fr; align-items: center; height: 100%;">
+            
+            <div class="visual-box" style="background: rgba(0,0,0,0.2); border-radius: 15px; padding: -10px 20px 40px 20px; display: flex; justify-content: center; position: relative;">
+                <svg width="400" height="550" viewBox="0 0 400 550">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#FFD700" />
+                        </marker>
+                        <linearGradient id="flowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#FFD700" stop-opacity="0.3" />
+                            <stop offset="50%" stop-color="#FFD700" stop-opacity="1" />
+                            <stop offset="100%" stop-color="#FFD700" stop-opacity="0.3" />
+                        </linearGradient>
+                    </defs>
+
+                    <text x="280" y="30" fill="#FFD700" font-family="JetBrains Mono" font-size="14" class="anim-1">0000</text>
+                    <text x="160" y="30" fill="#FFD700" font-family="Noto Sans SC" font-size="14" class="anim-1">RD (I)</text>
+                    <line x1="200" y1="10" x2="200" y2="40" stroke="#FFD700" stroke-width="2" marker-end="url(#arrowhead)" class="anim-1" />
+
+                    <rect x="100" y="40" width="200" height="60" fill="none" stroke="#4AB99D" stroke-width="2" class="anim-1" />
+                    <text x="200" y="65" fill="#FFFFFF" text-anchor="middle" font-size="14" class="anim-1">PC→ABUS (I)</text>
+                    <text x="200" y="85" fill="#FFFFFF" text-anchor="middle" font-size="14" class="anim-1">IBUS→IR, PC+1</text>
+                    
+                    <line x1="200" y1="100" x2="200" y2="130" stroke="#FFD700" stroke-width="2" marker-end="url(#arrowhead)" class="anim-2" />
+                    <text x="280" y="125" fill="#FFD700" font-family="JetBrains Mono" font-size="14" class="anim-2">0000</text>
+                    
+                    <path d="M200 130 L250 160 L200 190 L150 160 Z" fill="none" stroke="#FF6B6B" stroke-width="2" class="anim-2" />
+                    <text x="200" y="165" fill="#FFFFFF" text-anchor="middle" font-size="18" class="anim-2">P₁</text>
+
+                    <line x1="200" y1="190" x2="200" y2="220" stroke="#FFD700" stroke-width="2" marker-end="url(#arrowhead)" class="anim-3" />
+                    <text x="280" y="215" fill="#FFD700" font-family="JetBrains Mono" font-size="14" class="anim-3">1010</text>
+
+                    <rect x="120" y="220" width="160" height="45" fill="none" stroke="#4AB99D" stroke-width="2" class="anim-3" />
+                    <text x="200" y="248" fill="#FFFFFF" text-anchor="middle" font-size="16" class="anim-3">R₁ + R₂ → R₂</text>
+
+                    <line x1="200" y1="265" x2="200" y2="295" stroke="#FFD700" stroke-width="2" marker-end="url(#arrowhead)" class="anim-4" />
+                    <text x="280" y="290" fill="#FFD700" font-family="JetBrains Mono" font-size="14" class="anim-4">1001</text>
+
+                    <rect x="120" y="295" width="160" height="45" fill="none" stroke="#4AB99D" stroke-width="2" class="anim-4" />
+                    <text x="200" y="323" fill="#FFFFFF" text-anchor="middle" font-size="16" class="anim-4">R₂ + R₃ → R₂</text>
+
+                    <line x1="200" y1="340" x2="200" y2="370" stroke="#FFD700" stroke-width="2" marker-end="url(#arrowhead)" class="anim-5" />
+                    <line x1="200" y1="510" x2="200" y2="540" stroke="#FFD700" stroke-width="2" marker-end="url(#arrowhead)" class="anim-5" />
+                    <text x="280" y="365" fill="#FFD700" font-family="JetBrains Mono" font-size="14" class="anim-5">0000</text>
+                    <path d="M200 370 L250 400 L200 430 L150 400 Z" fill="none" stroke="#FF6B6B" stroke-width="2" class="anim-5" />
+                    <text x="200" y="405" fill="#FFFFFF" text-anchor="middle" font-size="18" class="anim-5">P₂</text>
+                    
+                    <line x1="200" y1="430" x2="200" y2="460" stroke="#FFD700" stroke-width="2" marker-end="url(#arrowhead)" class="anim-5" />
+                    <text x="160" y="450" fill="#FFD700" font-size="14" class="anim-5">Cᵧ=0</text>
+                    <text x="280" y="455" fill="#FFD700" font-family="JetBrains Mono" font-size="14" class="anim-5">0001</text>
+
+                    <rect x="120" y="460" width="160" height="45" fill="none" stroke="#4AB99D" stroke-width="2" class="anim-5" />
+                    <text x="200" y="488" fill="#FFFFFF" text-anchor="middle" font-size="16" class="anim-5">R₂ - R₃ → R₂</text>
+
+                    <path d="M150 400 L80 400 L80 520 L200 520 L200 540" fill="none" stroke="#FFD700" stroke-width="2" class="anim-5" />
+                    <text x="110" y="390" fill="#FFD700" font-size="14" class="anim-5">Cᵧ=1</text>
+
+                    <line x1="170" y1="540" x2="230" y2="540" stroke="#FFFFFF" stroke-width="3" class="anim-5" />
+                    <line x1="170" y1="540" x2="160" y2="550" stroke="#FFFFFF" stroke-width="3" class="anim-5" />
+                    <line x1="230" y1="540" x2="240" y2="550" stroke="#FFFFFF" stroke-width="3" class="anim-5" />
+                    
+                </svg>
+            </div>
+
+            <div class="text-box">
+                <div class="card anim-1">
+                    <h3 style="color: var(--primary);"><i class="fas fa-sync-alt"></i> 取指微指令 (Fetch)</h3>
+                    <p>微程序起始于 <b>0000</b> 地址。首先完成指令提取：PC送地址总线，从内存读入指令至IR，并完成PC自增。</p>
+                </div>
+                
+                <div class="card anim-3">
+                    <h3 style="color: var(--primary);"><i class="fas fa-calculator"></i> 算术转换逻辑</h3>
+                    <p>通过 <b>P₁ 测试</b> 进入十进制加法核心：</p>
+                    <ul style="margin-left: 20px; color: var(--text-dim); line-height: 1.6;">
+                        <li><b>R1 + R2:</b> 基础数据相加</li>
+                        <li><b>R2 + R3:</b> 引入修正量（如：十进制校正）</li>
+                    </ul>
+                </div>
+
+                <div class="card anim-5">
+                    <h3 style="color: var(--danger);"><i class="fas fa-random"></i> 状态条件判别 (P₂)</h3>
+                    <p>根据进位标志 <b>Cᵧ</b> 进行条件转移：</p>
+                    <ul style="margin-left: 20px; color: var(--text-dim); line-height: 1.6;">
+                        <li>若 <b>Cᵧ = 0</b>：执行减法修正 (R₂-R₃)，确保符合十进制编码。</li>
+                        <li>若 <b>Cᵧ = 1</b>：直接跳过修正，完成本轮微程序执行。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="slide-container" id="p21">
+    <div class="hero-bg" style="filter: brightness(0.3) grayscale(0.5);"></div>
+    <div class="hero-accent"></div>
+    
+    <div class="content-area" style="align-items: center; justify-content: center; text-align: center;">
+        <div class="anim-1" style="position: relative; margin-bottom: 40px;">
+            <svg width="120" height="120" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="var(--primary)" stroke-width="2" stroke-dasharray="20 10" class="loop-path" />
+                <path d="M30 50 L45 65 L70 35" fill="none" stroke="var(--primary)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" class="anim-path" />
+            </svg>
+        </div>
+
+        <h1 class="anim-2" style="font-size: 84px; letter-spacing: 10px; margin-bottom: 10px; background: linear-gradient(to bottom, #fff, #888); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+            THANK YOU
+        </h1>
+        
+        <p class="anim-3" style="font-family: 'JetBrains Mono'; color: var(--primary); font-size: 24px; letter-spacing: 5px; margin-bottom: 60px;">
+            感谢聆听
+        </p>
+
+    
+        </div>
+    </div>
+</div>
+
+
+</div>
+
+
+<script>
+    let currentSlide = 1; 
+    const totalSlides = 21; // 根据实际幻灯片数量调整
+    const slides = document.querySelectorAll('.slide-container');
+    const particle = document.getElementById('p-main');
+    const progress = document.getElementById('progress');
+    const progressText = document.getElementById('progress');
+    
+
+    let currentStep = 0;
+    const steps = ['step-0', 'step-1', 'step-2', 'step-3'];
+    const statusMsgs = [
+        "正在取指并进行 P1 译码...",
+        "执行 R1 + R2 → R2",
+        "执行 R2 + 6，准备 P2 测试",
+        "Cy=0, 进行减 6 修正"
+    ];
+
+    function nextStep() {
+        // 移除之前的激活状态
+        steps.forEach(s => document.getElementById(s).classList.remove('active-step'));
+        
+        currentStep = (currentStep + 1) % 4;
+        
+        // 激活当前步
+        const el = document.getElementById(steps[currentStep]);
+        el.classList.add('active-step');
+        document.getElementById('status-text').innerText = "当前：" + statusMsgs[currentStep];
+
+        // 特殊逻辑：如果是分支步
+        if(currentStep === 3) {
+            document.getElementById('line-cy0').setAttribute('stroke', 'var(--danger)');
+        } else {
+            document.getElementById('line-cy0').setAttribute('stroke', '#444');
+        }
+    }
+
+
+    const data = {
+        'logic': {
+            title: '<i class="fas fa-microchip"></i> 逻辑本质',
+            content: '微程序控制器的核心是将<span class="highlight">组合逻辑</span>问题转化为<span class="highlight">存储逻辑</span>问题。它通过执行一段预存在 CM 中的微程序来解释执行每一条机器指令，实现了硬件设计的“软件化”。这不仅简化了硬件结构，更提升了控制系统的规整度。'
+        },
+        'advantage': {
+            title: '<i class="fas fa-award"></i> 设计优势',
+            content: '相比传统的硬连线控制器，微程序设计具备极佳的<span class="highlight">灵活性</span>。通过修改控制存储器（CM）中的微程序，即可在不改变硬件连线的情况下调整指令功能或增加新指令，是实现复杂指令集（CISC）的首选方案。'
+        },
+        'cycle': {
+            title: '<i class="fas fa-sync-alt"></i> 循环机制',
+            content: '系统运行遵循微指令周期的闭环：<span class="highlight">取微指令 → 执行微命令 → 形成下地址 → 取微指令 → ……</span>。每一个机器周期都由若干个微周期组成，通过这种嵌套循环，CPU 能够有序地调度寄存器传送、运算控制及 I/O 交互。'
+        }
+    };
+// 假设 slides 是你所有的幻灯片容器数组
+function showSlide(n) {
+    slides.forEach(s => s.classList.remove('active')); // 清除所有 active
+    slides[n].classList.add('active'); // 为当前幻灯片添加 active
+}
+    function updateInfo(key, el) {
+        // 切换导航高亮
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        el.classList.add('active');
+        // 执行平滑过渡
+        const box = document.getElementById('info-box');
+        box.style.opacity = '0';
+        box.style.transform = 'translateY(10px)';
+        setTimeout(() => {
+            document.getElementById('info-title').innerHTML = data[key].title;
+            document.getElementById('info-content').innerHTML = data[key].content;
+            box.style.opacity = '1';
+            box.style.transform = 'translateY(0)';
+        }, 150);
+    }
+    function changeSlide(direction) {
+        console.log("Navigating in direction:", direction);
+        // 此处集成您的幻灯片切换逻辑
+    }
+    
+    const posMap = {
+        ir: 65,
+        map: 155,
+        mar: 245,
+        cm: 335,
+        uir: 425
+    };
+    function changeSlide(dir) {
+        const oldSlide = document.getElementById(`p${currentSlide}`);
+        if(oldSlide) oldSlide.classList.remove('active');
+        
+        currentSlide += dir;
+        if (currentSlide > totalSlides) currentSlide = 1;
+        if (currentSlide < 1) currentSlide = totalSlides;
+        
+        const newSlide = document.getElementById(`p${currentSlide}`);
+        if(newSlide) newSlide.classList.add('active');
+        
+        document.getElementById('progress').innerText = `${currentSlide} / ${totalSlides}`;
+        
+        if(currentSlide === 17) resetSlide17();
+    }
+    function resetSlide17() {
+        currentStep = 0;
+        particle.style.display = 'none';
+        particle.style.transition = 'none';
+        particle.style.left = '50%';
+        particle.style.top = posMap.ir + 'px';
+        
+        document.querySelectorAll('.component, .loop-path').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.info-card').forEach(c => c.classList.remove('highlight'));
+        document.getElementById('btn-anim').innerHTML = '<i class="fas fa-play"></i> 开始演示';
+    }
+    function highlightCard(id) {
+        document.querySelectorAll('.info-card').forEach(c => c.classList.remove('highlight'));
+        const card = document.getElementById(id);
+        if(card) card.classList.add('highlight');
+    }
+    function highlightNode(ids) {
+        document.querySelectorAll('.component, .loop-path').forEach(n => n.classList.remove('active'));
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.classList.add('active');
+        });
+    }
+    function stepForward() {
+        const btn = document.getElementById('btn-anim');
+        
+        if (currentStep === 0) {
+            btn.innerHTML = '<i class="fas fa-chevron-right"></i> 下一步';
+            highlightCard('card-1');
+            highlightNode(['node-ir', 'node-map']);
+            particle.style.display = 'block';
+            particle.style.top = posMap.ir + 'px';
+            setTimeout(() => {
+                particle.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+                particle.style.top = posMap.mar + 'px';
+                setTimeout(() => highlightNode(['node-mar']), 600);
+            }, 50);
+            currentStep = 1;
+        } else if (currentStep === 1) {
+            highlightCard('card-2');
+            highlightNode(['node-mar', 'node-cm']);
+            particle.style.transition = 'all 0.5s ease-in-out';
+            particle.style.top = posMap.cm + 'px';
+            currentStep = 2;
+        } else if (currentStep === 2) {
+            highlightCard('card-3');
+            highlightNode(['node-cm', 'node-uir']);
+            particle.style.top = posMap.uir + 'px';
+            currentStep = 3;
+        } else if (currentStep === 3) {
+            highlightCard('card-4');
+            highlightNode(['node-uir', 'loop-path']);
+            btn.innerHTML = '<i class="fas fa-sync"></i> 地址反馈';
+            particle.style.transition = 'all 0.4s ease-in';
+            particle.style.left = '80%'; /* Adjusted for wider components */
+            currentStep = 4;
+        } else if (currentStep === 4) {
+            particle.style.transition = 'all 0.4s ease-in';
+            particle.style.left = '94%';
+            setTimeout(() => {
+                particle.style.transition = 'all 0.7s ease-in-out';
+                particle.style.top = posMap.mar + 'px'; 
+                setTimeout(() => {
+                    particle.style.transition = 'all 0.4s ease-out';
+                    particle.style.left = '50%'; 
+                    setTimeout(() => {
+                        currentStep = 1; 
+                        highlightNode(['node-mar']);
+                        highlightCard('card-2');
+                        btn.innerHTML = '<i class="fas fa-chevron-right"></i> 下一步';
+                    }, 400);
+                }, 700);
+            }, 400);
+        }
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') changeSlide(1);
+        if (e.key === 'ArrowLeft') changeSlide(-1);
+        if (e.key === 'Enter' || e.key === ' ') {
+            if (currentSlide === 17) {
+                e.preventDefault();
+                stepForward();
+            }
+        }
+    });
+    // 基础导航逻辑   
+    function updateLogic(type) {
+        const linkIr = document.getElementById('link-ir');
+        const linkCmdr = document.getElementById('link-cmdr');
+        const btnSeq = document.getElementById('btn-seq');
+        const btnP1 = document.getElementById('btn-p1');
+        if (type === 'p1') {
+            linkIr.classList.add('active', 'flow');
+            linkCmdr.classList.remove('active', 'flow');
+            btnP1.classList.add('active');
+            btnSeq.classList.remove('active');
+        } else {
+            linkIr.classList.remove('active', 'flow');
+            linkCmdr.classList.add('active', 'flow');
+            btnP1.classList.remove('active');
+            btnSeq.classList.add('active');
+        }
+    }
+    function updateSlide() {
+        slides.forEach((s, i) => s.classList.toggle('active', i === currentSlide - 1));
+        progressText.innerText = `${currentSlide} / ${totalSlides}`;
+        
+        // 刷新 SVG 动画
+        if(currentSlide === 8) {
+            const content = document.querySelector('#p8 .content-area');
+            const html = content.innerHTML;
+            content.innerHTML = '';
+            setTimeout(() => content.innerHTML = html, 10);
+        }
+    }
+    function changeSlide(n) {
+        currentSlide += n;
+        if (currentSlide > totalSlides) currentSlide = 1;
+        if (currentSlide < 1) currentSlide = totalSlides;
+        updateSlide();
+    }
+    const dataModel = {
+        op: {icon: "terminal",title: "操作控制字段 (23-6)",text: "占据 <span class='highlight-text'>18位</span> 空间。每一位直接对应数据通路中的一个微命令信号，这种“一位对一令”的映射方式，使硬件能够瞬间响应，是高性能控制器的首选。"},
+        test: {icon: "vials",title: "判别测试字段 P (5-4)",text: "占 <span class='highlight-text'>2位</span>。控制微地址的跳转逻辑：<br>• <b>P1测试</b>：依据指令寄存器(IR)操作码生成分支地址。<br>• <b>P2测试</b>：依据状态寄存器(ALU标志)决定下一条路径。"},
+        addr: {icon: "map-marker-alt",title: "下址字段 ADDR (3-0)",text: "占 <span class='highlight-text'>4位</span>。存储后继微指令的基地址。它将与P字段的测试结果进行逻辑合并（通常是按位或运算），动态合成下一个微周期的读取地址。"}
+    };
+    function showInfo(key, el) {
+        // 移除旧的高亮
+        document.querySelectorAll('.field').forEach(f => f.classList.remove('active'));
+        // 添加新高亮
+        el.classList.add('active');
+        // 更新内容
+        const box = document.getElementById('detail-box');
+        box.style.opacity = 0;  
+        setTimeout(() => {document.getElementById('box-title').innerHTML = contentData[key].title;document.getElementById('box-content').innerHTML = contentData[key].text;box.style.opacity = 1;}, 150);
+    } 
+    function updateDetail(key, element) {
+        // 更新字段选中状态
+        document.querySelectorAll('.field').forEach(f => f.classList.remove('active'));
+        element.classList.add('active');
+
+        const wrapper = document.getElementById('content-wrapper');
+        const icon = wrapper.querySelector('i');
+        
+        // 步骤1：淡出并位移
+        wrapper.classList.add('hidden-state');
+        if(icon) icon.style.transform = "rotate(90deg)";
+        setTimeout(() => {
+            const data = dataModel[key];
+            // 步骤2：更新内容
+            document.getElementById('box-title').innerHTML = `<i class="fas fa-${data.icon}"></i> ${data.title}`;
+            document.getElementById('box-content').innerHTML = data.text;
+            // 步骤3：回弹并淡入
+            wrapper.classList.remove('hidden-state');   
+            // 图标旋转动画效果
+            const newIcon = wrapper.querySelector('i');
+            newIcon.style.transform = "rotate(-20deg)";
+            setTimeout(() => {
+                newIcon.style.transform = "rotate(0deg)";
+            }, 50);
+        }, 300);
+    }
+</script>
+
+</body>
+</html> 
