@@ -835,22 +835,26 @@
 
     .media-layout {
       display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 0.82fr);
       gap: 26px;
-      align-items: stretch;
+      align-items: start;
     }
 
     .video-placeholder {
       position: relative;
-      min-height: 430px;
+      aspect-ratio: 16 / 9;
       border-radius: 8px;
       overflow: hidden;
-      background:
-        linear-gradient(135deg, rgba(23, 49, 58, 0.78), rgba(45, 127, 138, 0.76)),
-        url("assets/tree-walkway.jpg");
-      background-size: cover;
-      background-position: center;
+      background: #14363c;
       box-shadow: var(--shadow);
+    }
+
+    .video-placeholder iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
     }
 
     .play {
@@ -875,14 +879,15 @@
     }
 
     .media-note {
-      min-height: 430px;
-      padding: 34px;
+      min-height: 0;
+      padding: 28px;
       border-radius: 8px;
       background: var(--mist);
       border: 1px solid var(--line);
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: flex-start;
+      gap: 22px;
     }
 
     .media-note h3 {
@@ -1499,21 +1504,23 @@
     <section id="media">
       <div class="section-inner">
         <div class="section-title wide-section-title">
-          <div class="eyebrow">视频与图片</div>
+          <div class="eyebrow">宣传区</div>
           <h2 class="single-line-title">实拍图像记录苏州河的日常温度</h2>
           <p class="lead">河岸景观、林荫步道、花草绿化、骑行出行和公共活动共同构成“还河于民”的可视化证据。</p>
         </div>
         <div class="media-layout">
-          <div class="video-placeholder" aria-label="宣传视频预留区域">
-            <button class="play" aria-label="视频播放占位按钮">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z"/></svg>
-            </button>
+          <div class="video-placeholder" aria-label="苏州河宣传视频">
+            <iframe
+              src="https://player.bilibili.com/player.html?isOutside=true&bvid=BV1gsE16bEec&p=1"
+              title="苏州河步道实践宣传视频"
+              allowfullscreen="allowfullscreen"
+              scrolling="no"
+              referrerpolicy="no-referrer-when-downgrade"></iframe>
           </div>
           <aside class="media-note">
             <div>
               <h3>一条河回到生活里</h3>
               <p>镜头沿着苏州河慢慢走过，水面、树影、花草和步道上的人声交织在一起。曾经被围墙隔开的岸线，如今成了散步、晨练、停留和相遇的日常。</p>
-              <p>我们记录的不只是一段风景，也是一座城市把空间还给人的过程。河岸变得可亲近，生活也因此多了一点从容的亮色。</p>
             </div>
             <p>从“工业锈带”到“生活秀带”，苏州河的改变藏在每一次靠近水边的脚步里。</p>
           </aside>
