@@ -518,24 +518,26 @@
     .context-index {
       width: 34px;
       height: 34px;
-      display: grid;
-      place-items: center;
+      position: relative;
+      display: block;
+      flex: 0 0 34px;
       border-radius: 50%;
-      color: #fff;
+      color: transparent;
       background: var(--river-deep);
+      font-size: 0;
+    }
+
+    .context-index::before {
+      content: attr(data-index);
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      color: #fff;
       font-family: var(--serif);
       font-weight: 700;
       font-size: 18px;
       line-height: 1;
-      padding-bottom: 2px;
-    }
-
-    .context-card:nth-child(3) .context-index,
-    .context-card:nth-child(4) .context-index {
-      padding-left: 0;
-      padding-bottom: 0;
-      padding-top: 2px;
-      text-indent: -1px;
+      transform: translate(-50%, -50%);
     }
 
     .context-toggle {
@@ -1437,19 +1439,19 @@
           <div class="context-side">
             <div class="context-stack">
               <details class="context-card">
-                <summary><span class="context-index">1</span><span>历史河流：上海城市发展的重要见证</span><span class="context-toggle">+</span></summary>
+                <summary><span class="context-index" data-index="1">1</span><span>历史河流：上海城市发展的重要见证</span><span class="context-toggle">+</span></summary>
                 <div class="context-body"><p>苏州河是黄浦江的重要支流，沿岸曾聚集纺织、面粉、机械、仓储等产业，承载着上海近代工业文明的记忆。也正因工业生产和封闭岸线叠加，普通市民一度难以真正靠近这条河。</p></div>
               </details>
               <details class="context-card">
-                <summary><span class="context-index">2</span><span>生态转身：从黑臭河道到水清岸绿</span><span class="context-toggle">+</span></summary>
+                <summary><span class="context-index" data-index="2">2</span><span>生态转身：从黑臭河道到水清岸绿</span><span class="context-toggle">+</span></summary>
                 <div class="context-body"><p>持续治理让苏州河逐步摆脱“黑臭”印象，绿植、湿地与亲水空间共同恢复河岸生机。生态改善不只让景观变美，也让市民重新愿意在河边停留、散步、观察和拍照。</p></div>
               </details>
               <details class="context-card">
-                <summary><span class="context-index">3</span><span>42 公里贯通：把封闭岸线还给公众</span><span class="context-toggle">+</span></summary>
+                <summary><span class="context-index" data-index="3">3</span><span>42 公里贯通：把封闭岸线还给公众</span><span class="context-toggle">+</span></summary>
                 <div class="context-body"><p>苏州河中心城区两岸约 42 公里岸线基本贯通，长宁、普陀、静安、虹口等城区的滨水空间被连续串联。曾经被围墙、厂房、码头割裂的岸线，变成市民可达、可走、可停留的公共空间。</p></div>
               </details>
               <details class="context-card">
-                <summary><span class="context-index">4</span><span>公共服务：从“有路可走”到“走得舒适”</span><span class="context-toggle">+</span></summary>
+                <summary><span class="context-index" data-index="4">4</span><span>公共服务：从“有路可走”到“走得舒适”</span><span class="context-toggle">+</span></summary>
                 <div class="context-body"><p>沿线驿站、公共卫生间、休息座椅、无障碍坡道与文化节点，让步道从单纯通行空间升级为复合公共走廊。它服务晨练散步、亲子活动、骑行通勤，也承载生态科普和城市记忆。</p></div>
               </details>
             </div>
