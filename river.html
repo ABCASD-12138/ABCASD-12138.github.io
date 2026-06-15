@@ -1115,11 +1115,49 @@
 
     @media (max-width: 900px) {
       .nav {
-        min-height: 60px;
+        width: 100%;
+        min-height: 72px;
+        padding: 7px 14px 6px;
+        align-items: flex-start;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+      }
+
+      .brand {
+        gap: 8px;
+        font-size: 15px;
+      }
+
+      .brand-mark {
+        width: 30px;
+        height: 30px;
+      }
+
+      .brand-mark svg {
+        width: 19px;
+        height: 19px;
       }
 
       .nav-links {
+        width: 100%;
+        display: flex;
+        gap: 14px;
+        overflow-x: auto;
+        padding-bottom: 0;
+        font-size: 12px;
+        line-height: 1.2;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .nav-links::-webkit-scrollbar {
         display: none;
+      }
+
+      .nav-links a {
+        flex: 0 0 auto;
+        padding: 3px 0;
       }
 
       .hero {
@@ -1185,6 +1223,13 @@
       .video-placeholder {
         width: 100%;
         min-height: 0;
+      }
+
+      .video-placeholder.is-floating {
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        width: auto;
       }
 
       .media-note {
@@ -1309,7 +1354,7 @@
         <a href="#warmth">城市温度</a>
         <a href="#voices">市民声音</a>
         <a href="#data">调研发现</a>
-        <a href="#media">视频与图片</a>
+        <a href="#media">宣传区</a>
       </div>
     </nav>
   </header>
@@ -1525,6 +1570,7 @@
               allowfullscreen="allowfullscreen"
               scrolling="no"
               referrerpolicy="no-referrer-when-downgrade"></iframe>
+            <button class="video-float-close" type="button" aria-label="关闭小窗播放">&times;</button>
           </div>
           <aside class="media-note">
             <div>
@@ -1654,6 +1700,49 @@
     window.addEventListener("resize", () => {
       document.querySelectorAll(".context-card[open]").forEach(setContextBodyHeight);
     });
+
+    const videoBox = document.querySelector(".video-placeholder");
+    const videoClose = document.querySelector(".video-float-close");
+    const mediaSection = document.querySelector("#media");
+    let videoWasActivated = false;
+    let videoFloatDismissed = false;
+
+    function updateVideoFloat() {
+      if (!videoBox || !videoWasActivated || videoFloatDismissed) return;
+      const rect = mediaSection.getBoundingClientRect();
+      const isAway = rect.bottom < 120 || rect.top > window.innerHeight - 120;
+      videoBox.classList.toggle("is-floating", isAway);
+    }
+
+    if (videoBox && mediaSection) {
+      const markVideoSeen = () => {
+        videoWasActivated = true;
+        videoFloatDismissed = false;
+        updateVideoFloat();
+      };
+      mediaSection.addEventListener("pointerenter", markVideoSeen);
+      mediaSection.addEventListener("touchstart", markVideoSeen, { passive: true });
+      if ("IntersectionObserver" in window) {
+        const videoSeenObserver = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              markVideoSeen();
+            }
+          });
+        }, { threshold: 0.35 });
+        videoSeenObserver.observe(mediaSection);
+      }
+      window.addEventListener("scroll", updateVideoFloat, { passive: true });
+      window.addEventListener("resize", updateVideoFloat);
+    }
+
+    if (videoClose) {
+      videoClose.addEventListener("click", (event) => {
+        event.stopPropagation();
+        videoFloatDismissed = true;
+        videoBox.classList.remove("is-floating");
+      });
+    }
 
     closeLightbox.addEventListener("click", hideLightbox);
     lightbox.addEventListener("click", (event) => {
